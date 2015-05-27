@@ -58,3 +58,31 @@ let rec srt_of_idx (idxs: srt env) (i: idx) : srt option =
       then Some SShape else None
   | IVar name -> List.Assoc.find idxs name
 ;;
+
+
+let rec kind_of_typ (idxs: srt env)
+                    (types: kind env)
+		    (t: typ) : kind option =
+  match t with
+  | TFloat -> Some ()
+  | TInt -> Some ()
+  | TBool -> Some ()
+  | TDProd (new_idxs, body)
+    -> kind_of_typ (env_update new_idxs idxs) types body
+  | TDSum (new_idxs, body)
+    -> kind_of_typ (env_update new_idxs idxs) types body
+  | TFun (ins, out)
+(* This phrasing seems a little ugly *)
+    -> if (List.for_all (List.map ~f:(kind_of_typ idxs types) ins) is_some)
+      then kind_of_typ idxs types out
+      else None
+  | TArray (shape, elts) ->
+    srt_of_idx idxs shape >>= fun s_srt ->
+    kind_of_typ idxs types elts >>= fun e_kind ->
+    Some e_kind
+  | TAll (vars, body)
+    -> kind_of_typ idxs
+                   (env_update (List.map ~f:(fun x -> (x,())) vars) types)
+                   body
+  | TVar name -> List.Assoc.find types name
+;;

@@ -36,3 +36,5 @@ val env_update : 'a env -> 'a env -> 'a env
 
 val srt_of_idx : srt env -> idx -> srt option
 
+val kind_of_typ : srt env -> kind env -> typ -> kind option
+
