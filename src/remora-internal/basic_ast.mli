@@ -65,9 +65,9 @@ and ('self_t, 'expr_t) elt_form =
 with sexp
 
 type 'annot ann_expr =
-    AnnRExpr of 'annot * ('annot ann_expr, 'annot ann_elt) expr_form
+  AnnRExpr of 'annot * ('annot ann_expr, 'annot ann_elt) expr_form
 and 'annot ann_elt =
-    AnnRElt of 'annot * ('annot ann_elt, 'annot ann_expr) elt_form
+  AnnRElt of 'annot * ('annot ann_elt, 'annot ann_expr) elt_form
 with sexp
 
 type t_expr = typ ann_expr with sexp
@@ -79,3 +79,8 @@ type t_elt = typ ann_elt with sexp
 type rem_expr = RExpr of (rem_expr, rem_elt) expr_form
 and rem_elt = RElt of (rem_elt, rem_expr) elt_form
 with sexp
+
+val annot_expr_init : init:'t -> rem_expr -> 't ann_expr
+val annot_elt_init : init:'t -> rem_elt -> 't ann_elt
+val annot_expr_drop : 't ann_expr -> rem_expr
+val annot_elt_drop : 't ann_elt -> rem_elt
