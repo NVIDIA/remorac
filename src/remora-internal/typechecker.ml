@@ -62,7 +62,7 @@ let rec srt_of_idx (idxs: srt env) (i: idx) : srt option =
 
 let rec kind_of_typ (idxs: srt env)
                     (types: kind env)
-		    (t: typ) : kind option =
+                    (t: typ) : kind option =
   match t with
   | TFloat -> Some ()
   | TInt -> Some ()
@@ -86,35 +86,3 @@ let rec kind_of_typ (idxs: srt env)
                    body
   | TVar name -> List.Assoc.find types name
 ;;
-
-
-let rec typ_of_elt (idxs: srt env)
-                    (typs: kind env)
-                    (vars: typ env)
-                    (elt: rem_elt) : typ option =
-  match elt with RElt e ->
-    match e with
-    | Int _ -> Some TInt
-    | Float _ -> Some TFloat
-    | Bool _ -> Some TBool
-(* TODO: include well-formedness check for types the vars are bound at *)
-    | Lam (bindings, body)
-      -> (typ_of_expr idxs typs (env_update bindings vars) body)
-	 >>| (fun t -> TFun (List.map ~f:snd bindings, t))
-(* Alternate version without option monad:
-      -> let body_typ = type_of_expr idxs types (env_update bindings vars) body
-         in match body_typ with
-         | Some t -> Some (TFun (List.map ~f:snd bindings, t))
-         | None -> None
-*)
-    | Expr e -> typ_of_expr idxs typs vars e
-and typ_of_expr (idxs: srt env)
-                 (typs: kind env)
-                 (vars: typ env)
-                 (expr: rem_expr) : typ option =
-  match expr with RExpr e ->
-    match e with
-    | Var name -> List.Assoc.find vars name
-(*    | Pack (i, body) -> *)
-;;
-
