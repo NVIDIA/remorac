@@ -73,7 +73,8 @@ type ('self_t, 'elt_t) expr_form =
 | ILam of (var * srt) list * 'self_t
 | Arr of int list * 'elt_t list
 | Var of var
-| Pack of idx list * 'self_t
+(* Unfortunately, this typ becomes redundant once the AST is type-annotated. *)
+| Pack of idx list * 'self_t * typ
 | Unpack of var list * var * 'self_t * 'self_t
 (* General shape of a Remora array element *)
 and ('self_t, 'expr_t) elt_form =
@@ -137,8 +138,8 @@ let rec annot_expr_init ~(init:'t) (expr: rem_expr) : 't ann_expr =
        | Arr (shape, elts)
 	 -> Arr (shape, (List.map ~f:(annot_elt_init ~init:init) elts))
        | Var name -> Var name
-       | Pack (idxs, contents)
-	 -> Pack (idxs, (annot_expr_init ~init:init contents))
+       | Pack (idxs, contents, t)
+	 -> Pack (idxs, (annot_expr_init ~init:init contents), t)
        | Unpack (idxs, termvar, contents, body)
 	 -> Unpack (idxs, termvar,
 		    (annot_expr_init ~init:init contents),
@@ -165,7 +166,7 @@ let rec annot_expr_drop (expr: 't ann_expr) : rem_expr =
       | ILam (args, body) -> ILam (args, annot_expr_drop body)
       | Arr (shape, elts) -> Arr (shape, List.map ~f:annot_elt_drop elts)
       | Var name -> Var name
-      | Pack (idxs, contents) -> Pack (idxs, annot_expr_drop contents)
+      | Pack (idxs, contents, t) -> Pack (idxs, annot_expr_drop contents, t)
       | Unpack (idxs, termvar, contents, body)
 	-> Unpack (idxs, termvar,
 		   annot_expr_drop contents,

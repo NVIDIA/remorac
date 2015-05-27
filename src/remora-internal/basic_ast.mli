@@ -59,7 +59,7 @@ type ('self_t, 'elt_t) expr_form =
   | ILam of (var * srt) list * 'self_t
   | Arr of int list * 'elt_t list
   | Var of var
-  | Pack of idx list * 'self_t
+  | Pack of idx list * 'self_t * typ
   | Unpack of var list * var * 'self_t * 'self_t
 and ('self_t, 'expr_t) elt_form =
     Float of float

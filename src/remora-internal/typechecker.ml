@@ -37,7 +37,7 @@ type 'a env = (var, 'a) List.Assoc.t with sexp
 (* proper types only *)
 type kind = unit with sexp
 
-let rec env_update news olds =
+let env_update news olds =
   let dropped = List.fold ~init:olds ~f:(List.Assoc.remove ~equal:(=))
     (List.map ~f:fst news)
   in List.append news dropped
@@ -49,12 +49,12 @@ let rec srt_of_idx (idxs: srt env) (i: idx) : srt option =
   | INat n -> Some SNat
   | IShape dims ->
     let d_srts = List.map ~f:(srt_of_idx idxs) dims
-    in if (List.for_all d_srts ((=) (Some SNat)))
+    in if (List.for_all d_srts ~f:((=) (Some SNat)))
       then Some SShape else None
 (* TODO: Maybe this form should just allow arbitrarily many operands? *)
   | ISum (left, right) ->
     let d_srts = List.map ~f:(srt_of_idx idxs) [left; right]
-    in if (List.for_all d_srts ((=) (Some SNat)))
+    in if (List.for_all d_srts ~f:((=) (Some SNat)))
       then Some SShape else None
   | IVar name -> List.Assoc.find idxs name
 ;;
@@ -73,7 +73,7 @@ let rec kind_of_typ (idxs: srt env)
     -> kind_of_typ (env_update new_idxs idxs) types body
   | TFun (ins, out)
 (* This phrasing seems a little ugly *)
-    -> if (List.for_all (List.map ~f:(kind_of_typ idxs types) ins) is_some)
+    -> if (List.for_all (List.map ~f:(kind_of_typ idxs types) ins) ~f:is_some)
       then kind_of_typ idxs types out
       else None
   | TArray (shape, elts) ->
@@ -86,3 +86,35 @@ let rec kind_of_typ (idxs: srt env)
                    body
   | TVar name -> List.Assoc.find types name
 ;;
+
+
+let rec typ_of_elt (idxs: srt env)
+                    (typs: kind env)
+                    (vars: typ env)
+                    (elt: rem_elt) : typ option =
+  match elt with RElt e ->
+    match e with
+    | Int _ -> Some TInt
+    | Float _ -> Some TFloat
+    | Bool _ -> Some TBool
+(* TODO: include well-formedness check for types the vars are bound at *)
+    | Lam (bindings, body)
+      -> (typ_of_expr idxs typs (env_update bindings vars) body)
+	 >>| (fun t -> TFun (List.map ~f:snd bindings, t))
+(* Alternate version without option monad:
+      -> let body_typ = type_of_expr idxs types (env_update bindings vars) body
+         in match body_typ with
+         | Some t -> Some (TFun (List.map ~f:snd bindings, t))
+         | None -> None
+*)
+    | Expr e -> typ_of_expr idxs typs vars e
+and typ_of_expr (idxs: srt env)
+                 (typs: kind env)
+                 (vars: typ env)
+                 (expr: rem_expr) : typ option =
+  match expr with RExpr e ->
+    match e with
+    | Var name -> List.Assoc.find vars name
+(*    | Pack (i, body) -> *)
+;;
+
