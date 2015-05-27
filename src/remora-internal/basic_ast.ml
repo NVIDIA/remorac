@@ -32,7 +32,12 @@ open Core.Std
 type var = string with sexp
 
 (* Remora indices *)
-type idx = INat of int | IShape of int list with sexp
+type idx = 
+| INat of int
+| IShape of idx list
+| ISum of idx * idx
+| IVar of var
+with sexp
 
 (* Remora index sorts *)
 type srt = SNat | SShape with sexp

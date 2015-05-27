@@ -30,7 +30,12 @@ open Core.Std
 
 type var = bytes with sexp
 
-type idx = INat of int | IShape of int list with sexp
+type idx = 
+| INat of int
+| IShape of idx list
+| ISum of idx * idx
+| IVar of var
+with sexp
 
 type srt = SNat | SShape with sexp
 
