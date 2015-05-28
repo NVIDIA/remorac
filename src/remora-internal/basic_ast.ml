@@ -125,25 +125,25 @@ let rec annot_expr_init ~(init:'t) (expr: rem_expr) : 't ann_expr =
   match expr with RExpr node ->
     let new_node = match node with
        | App (fn, args)
-	 -> App (annot_expr_init ~init:init fn,
-		 List.map ~f:(annot_expr_init ~init:init) args)
+         -> App (annot_expr_init ~init:init fn,
+                 List.map ~f:(annot_expr_init ~init:init) args)
        | TApp (fn, args)
-	 -> TApp (annot_expr_init ~init:init fn, args)
+         -> TApp (annot_expr_init ~init:init fn, args)
        | TLam (args, body)
-	 -> TLam (args, annot_expr_init ~init:init body)
+         -> TLam (args, annot_expr_init ~init:init body)
        | IApp (fn, args)
-	 -> IApp (annot_expr_init ~init:init fn, args)
+         -> IApp (annot_expr_init ~init:init fn, args)
        | ILam (args, body)
-	 -> ILam (args, annot_expr_init ~init:init body)
+         -> ILam (args, annot_expr_init ~init:init body)
        | Arr (shape, elts)
-	 -> Arr (shape, (List.map ~f:(annot_elt_init ~init:init) elts))
+         -> Arr (shape, (List.map ~f:(annot_elt_init ~init:init) elts))
        | Var name -> Var name
        | Pack (idxs, contents, t)
-	 -> Pack (idxs, (annot_expr_init ~init:init contents), t)
+         -> Pack (idxs, (annot_expr_init ~init:init contents), t)
        | Unpack (idxs, termvar, contents, body)
-	 -> Unpack (idxs, termvar,
-		    (annot_expr_init ~init:init contents),
-		    (annot_expr_init ~init:init body))
+         -> Unpack (idxs, termvar,
+                    (annot_expr_init ~init:init contents),
+                    (annot_expr_init ~init:init body))
     in AnnRExpr (init, new_node)
 and annot_elt_init ~(init:'t) (elt: rem_elt) : 't ann_elt =
   match elt with RElt node ->
@@ -159,7 +159,7 @@ let rec annot_expr_drop (expr: 't ann_expr) : rem_expr =
   match expr with AnnRExpr (_, node) ->
     let new_node = match node with
       | App (fn, args) -> App (annot_expr_drop fn,
-			       List.map ~f:annot_expr_drop args)
+                               List.map ~f:annot_expr_drop args)
       | TApp (fn, args) -> TApp (annot_expr_drop fn, args)
       | TLam (args, body) -> TLam (args, annot_expr_drop body)
       | IApp (fn, args) -> IApp (annot_expr_drop fn, args)
@@ -168,9 +168,9 @@ let rec annot_expr_drop (expr: 't ann_expr) : rem_expr =
       | Var name -> Var name
       | Pack (idxs, contents, t) -> Pack (idxs, annot_expr_drop contents, t)
       | Unpack (idxs, termvar, contents, body)
-	-> Unpack (idxs, termvar,
-		   annot_expr_drop contents,
-		   annot_expr_drop body)
+        -> Unpack (idxs, termvar,
+                   annot_expr_drop contents,
+                   annot_expr_drop body)
     in RExpr new_node
 and annot_elt_drop (elt: 't ann_elt) : rem_elt =
   match elt with AnnRElt (_, node) ->
