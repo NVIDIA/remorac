@@ -177,3 +177,33 @@ let remora_compose =
     RExpr (TLam (["alpha"; "beta"; "gamma"],
                  scalar_of_elt outer_lam))  in
   RExpr (ILam (["s1", SShape; "s2", SShape; "s3", SShape], type_lam))
+
+
+let fork_compose =
+  let inner_lam =
+    RElt (Lam (["x", TArray (IVar "s-li", TVar "t-li");
+                "y", TArray (IVar "s-ri", TVar "t-ri")],
+               RExpr (App (RExpr (Var "f-j"),
+                           [RExpr (App (RExpr (Var "f-l"),
+                                        [RExpr (Var "x")]));
+                            RExpr (App (RExpr (Var "f-r"),
+                                        [RExpr (Var "y")]))])))) in
+  let outer_lam =
+    RElt (Lam (["f-l", TArray (IShape [],
+                               TFun ([TArray (IVar "s-li", TVar "t-li")],
+                                     TArray (IVar "s-lo", TVar "t-lo")));
+                "f-r", TArray (IShape [],
+                               TFun ([TArray (IVar "s-ri", TVar "t-ri")],
+                                     TArray (IVar "s-ro", TVar "t-ro")));
+                "f-j", TArray (IShape [],
+                               TFun ([TArray (IVar "s-lo", TVar "t-lo");
+                                      TArray (IVar "s-ro", TVar "t-ro")],
+                                     TArray (IVar "s-jo", TVar "t-jo")))],
+               scalar_of_elt inner_lam)) in
+  let type_lam =
+    RExpr (TLam (["t-li"; "t-lo"; "t-ri"; "t-ro"; "t-jo"],
+                 scalar_of_elt outer_lam)) in
+  RExpr (ILam (["s-li", SShape; "s-lo", SShape;
+                "s-ri", SShape; "s-ro", SShape;
+                "s-jo", SShape],
+               type_lam))
