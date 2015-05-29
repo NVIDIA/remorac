@@ -60,3 +60,7 @@ val dep_sum_create : Basic_ast.rem_expr
 val dep_sum_project : Basic_ast.rem_expr
 val remora_compose : Basic_ast.rem_expr
 val fork_compose : Basic_ast.rem_expr
+
+module UnitTests : sig
+  val suite_init_drop : OUnit2.test
+end

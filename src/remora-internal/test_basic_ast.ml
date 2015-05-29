@@ -28,6 +28,7 @@
 
 open Core.Std
 open Basic_ast
+module U = OUnit2;;
 
 let test_t_int = TInt
 let test_t_float = TFloat
@@ -37,10 +38,6 @@ let ta =
 AnnRExpr ((TArray (IShape [INat 2], TInt)),
           (Arr ([2], [AnnRElt (TInt, Int 3);
                            AnnRElt (TInt, Int 2)])));;
-
-ta |> sexp_of_ann_expr sexp_of_typ
-   |> Sexp.to_string_hum ~indent:4
-   |> print_string
 
 let scalar_of_elt e = RExpr (Arr ([], [e]))
 let scalar_of_expr e = scalar_of_elt (RElt (Expr e))
@@ -207,3 +204,57 @@ let fork_compose =
                 "s-ri", SShape; "s-ro", SShape;
                 "s-jo", SShape],
                type_lam))
+
+
+(* For any rem_expr, adding blank annotations and then dropping annotations
+   should lead back to the same rem_expr *)
+module UnitTests : sig
+  val suite_init_drop : U.test
+end = struct
+  (* Initializing and removing annotations should give the same thing back *)
+  let test_expr_init_drop (x: rem_expr) _: U.test_ctxt =
+    U.assert_equal x (x |> annot_expr_init ~init:() |> annot_expr_drop)
+  let test_elt_init_drop (l: rem_elt) _: U.test_ctxt =
+    U.assert_equal l (l |> annot_elt_init ~init:() |> annot_elt_drop)
+  (* let flat_arr_2_3 = test_expr_init_drop flat_arr_2_3 *)
+  (* let flat_arr_0_4 = test_expr_init_drop flat_arr_0_4 *)
+  (* let arr_2 = test_expr_init_drop arr_2 *)
+  (* let arr_wrong = test_expr_init_drop arr_wrong *)
+  (* let nest_arr_2_3 = test_expr_init_drop nest_arr_2_3 *)
+  (* let unary_lambda = test_elt_init_drop unary_lambda *)
+  (* let binary_lambda = test_elt_init_drop binary_lambda *)
+  (* let unary_app = test_expr_init_drop unary_app *)
+  (* let binary_app = test_expr_init_drop binary_app *)
+  (* let unary_to_nested_app = test_expr_init_drop unary_to_nested_app *)
+  (* let nested_to_unary_app = test_expr_init_drop nested_to_unary_app *)
+  (* let type_abst = test_expr_init_drop type_abst *)
+  (* let type_abst_bad = test_expr_init_drop type_abst_bad *)
+  (* let type_app = test_expr_init_drop type_app *)
+  (* let index_abst = test_expr_init_drop index_abst *)
+  (* let index_app = test_expr_init_drop index_app *)
+  (* let dep_sum_create = test_expr_init_drop dep_sum_create *)
+  (* let dep_sum_project = test_expr_init_drop dep_sum_project *)
+  (* let remora_compose = test_expr_init_drop remora_compose *)
+  (* let fork_compose = test_expr_init_drop fork_compose *)
+  open OUnit2
+  let suite_init_drop =
+    "annotation init-drop">:::
+      ["Flat 2x3">:: test_expr_init_drop flat_arr_2_3;
+       "Flat 0x4">:: test_expr_init_drop flat_arr_0_4;
+       "Flat 2">:: test_expr_init_drop arr_2;
+       "Ill-formed array">:: test_expr_init_drop arr_wrong;
+       "Nested 2x3">:: test_expr_init_drop nest_arr_2_3;
+       "Unary lambda">:: test_elt_init_drop unary_lambda;
+       "Binary lambda">:: test_elt_init_drop binary_lambda;
+       "Apply unary to nested">:: test_expr_init_drop unary_to_nested_app;
+       "Apply nested to unary">:: test_expr_init_drop nested_to_unary_app;
+       "Type abstraction">:: test_expr_init_drop type_abst;
+       "Ill-formed type abstraction">:: test_expr_init_drop type_abst_bad;
+       "Type application">:: test_expr_init_drop type_app;
+       "Index abstraction">:: test_expr_init_drop index_abst;
+       "Index application">:: test_expr_init_drop index_app;
+       "Intro dependent sum">:: test_expr_init_drop dep_sum_create;
+       "Elim dependent sum">:: test_expr_init_drop dep_sum_project;
+       "Straight line composition">:: test_expr_init_drop remora_compose;
+       "Fork composition">:: test_expr_init_drop fork_compose]
+end
