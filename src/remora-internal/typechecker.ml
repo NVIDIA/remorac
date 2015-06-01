@@ -46,7 +46,7 @@ let env_update news olds =
 (* Identify the sort of a type index *)
 let rec srt_of_idx (idxs: srt env) (i: idx) : srt option =
   match i with
-  | INat n -> Some SNat
+  | INat _ -> Some SNat
   | IShape dims ->
     let d_srts = List.map ~f:(srt_of_idx idxs) dims
     in if (List.for_all d_srts ~f:((=) (Some SNat)))
@@ -77,7 +77,7 @@ let rec kind_of_typ (idxs: srt env)
       then kind_of_typ idxs types out
       else None
   | TArray (shape, elts) ->
-    srt_of_idx idxs shape >>= fun s_srt ->
+    srt_of_idx idxs shape >>= fun _ ->
     kind_of_typ idxs types elts >>= fun e_kind ->
     Some e_kind
   | TAll (vars, body)
