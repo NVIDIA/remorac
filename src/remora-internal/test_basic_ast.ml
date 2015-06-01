@@ -212,9 +212,9 @@ module UnitTests : sig
   val suite_init_drop : U.test
 end = struct
   (* Initializing and removing annotations should give the same thing back *)
-  let test_expr_init_drop (x: rem_expr) _: U.test_ctxt =
+  let test_expr_init_drop (x: rem_expr) (_: U.test_ctxt) =
     U.assert_equal x (x |> annot_expr_init ~init:() |> annot_expr_drop)
-  let test_elt_init_drop (l: rem_elt) _: U.test_ctxt =
+  let test_elt_init_drop (l: rem_elt) (_: U.test_ctxt) =
     U.assert_equal l (l |> annot_elt_init ~init:() |> annot_elt_drop)
   (* let flat_arr_2_3 = test_expr_init_drop flat_arr_2_3 *)
   (* let flat_arr_0_4 = test_expr_init_drop flat_arr_0_4 *)
