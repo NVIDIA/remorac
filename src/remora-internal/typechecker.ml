@@ -30,6 +30,7 @@ open Core.Std
 open Basic_ast
 open Core.Option
 open Core.Option.Monad_infix
+open Substitution
 
 
 type 'a env = (var, 'a) List.Assoc.t with sexp
@@ -85,4 +86,61 @@ let rec kind_of_typ (idxs: srt env)
                    (env_update (List.map ~f:(fun x -> (x,())) vars) types)
                    body
   | TVar name -> List.Assoc.find types name
+;;
+
+(* Maybe better to operate on annotated AST only -- doesn't seem to be a clear,
+   performant way to lift this into a form that will annotate the AST. Should
+   not repeatedly check same subtree (use annotation to store subtree results).
+*)
+let rec annot_elt_type
+    (idxs: srt env)
+    (typs: kind env)
+    (vars: typ env)
+    (elt: 'a ann_elt) : (typ option) ann_elt =
+  let (new_type, new_node) =
+    match elt with AnnRElt (_, e) ->
+      match e with
+      | Int _ as e_ -> (Some TInt, e_)
+      | Float _ as e_ -> (Some TFloat, e_)
+      | Bool _ as e_ -> (Some TBool, e_)
+      (* TODO: include well-formedness check for types the vars are bound at *)
+      | Lam (bindings, body)
+        -> (match (annot_expr_type idxs typs (env_update bindings vars) body) with
+        | AnnRExpr (Some t, _) as well_typed
+          -> (Some (TFun (List.map ~f:snd bindings, t)),
+              Lam (bindings, well_typed))
+        | AnnRExpr (None, _) as ill_typed
+          -> (None, Lam (bindings, ill_typed)))
+      | Expr e -> let AnnRExpr (t_opt, _) as subexpr =
+                    (annot_expr_type idxs typs vars e) in
+                  (t_opt, Expr subexpr)
+  in AnnRElt (new_type, new_node)
+and annot_expr_type
+    (idxs: srt env)
+    (typs: kind env)
+    (vars: typ env)
+    (expr: 'a ann_expr) : (typ option) ann_expr =
+  let (new_type, new_node): (typ option * (typ option ann_expr,
+                                           typ option ann_elt) expr_form) =
+    match expr with AnnRExpr (_, e) ->
+      match e with
+      | Var name as v_ -> (List.Assoc.find vars name, v_)
+      | Pack (new_idxs, AnnRExpr (a, body), TDSum (ivars, t)) ->
+        let AnnRExpr (body_typ, _) as body_annot =
+          (annot_expr_type idxs typs vars (AnnRExpr (a, body)))
+        in  (* Does every new_idx have the specified sort? *)
+        if (List.map ~f:(srt_of_idx idxs) new_idxs)
+          = (List.map ~f:(Fn.compose Option.some snd) ivars)
+            (* Is the dependent sum's body well-typed? *)
+            && (Option.is_some body_typ)
+            (* Does substituting those indices into the declared type give the
+               body's type? If the previous check passed, the lists we're
+               zipping must have the same length. *)
+            && t = (idx_into_typ
+                      (List.zip_exn (List.map ~f:fst ivars) new_idxs)
+                      (Option.value_exn body_typ))
+        then (Some (TDSum (ivars, t)),
+              Pack (new_idxs, body_annot, TDSum (ivars, t)))
+        else (None, Pack (new_idxs, body_annot, TDSum (ivars, t)))
+  in AnnRExpr (new_type, new_node)
 ;;

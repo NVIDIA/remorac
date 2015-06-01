@@ -29,7 +29,7 @@
 open Core.Std
 open Basic_ast
 
-type 'a env = (var, 'a) List.Assoc.t with sexp
+type 'a env = (var, 'a) Core.Std.List.Assoc.t with sexp
 type kind = unit with sexp
 
 val env_update : 'a env -> 'a env -> 'a env
@@ -38,3 +38,12 @@ val srt_of_idx : srt env -> idx -> srt option
 
 val kind_of_typ : srt env -> kind env -> typ -> kind option
 
+val annot_elt_type : srt env -> kind env -> typ env -> 'a ann_elt
+  -> typ option ann_elt
+val annot_expr_type : srt env -> kind env -> typ env -> 'a ann_expr
+  -> typ option ann_expr
+
+(*
+val type_of_elt :
+  srt env -> kind env -> typ env -> rem_elt -> typ option
+*)
