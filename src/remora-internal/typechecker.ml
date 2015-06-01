@@ -88,10 +88,35 @@ let rec kind_of_typ (idxs: srt env)
   | TVar name -> List.Assoc.find types name
 ;;
 
-(* Maybe better to operate on annotated AST only -- doesn't seem to be a clear,
-   performant way to lift this into a form that will annotate the AST. Should
-   not repeatedly check same subtree (use annotation to store subtree results).
-*)
+(**)
+let rec uniq_typ (typs: typ list) : (typ option) =
+  match typs with
+  | [] -> None
+  | [t] -> Some t
+  | t :: ts ->
+    uniq_typ ts >>= fun (rest: typ) ->
+    if (t = rest) then return t else None
+
+(**)
+let typ_of_t_expr = function
+  | AnnRExpr (t, _) -> t
+let typ_of_t_elt = function
+  | AnnRElt (t, _) -> t
+
+(* Transform a list of options into an option of a list. If the original list
+   contains any `None`s, collapse the whole list to a None.  *)
+let rec option_list_xform (options: 'a option list) : 'a list option =
+  match options with
+  | [] -> Some []
+  | None :: _ -> None
+  | (Some a) :: more ->
+    option_list_xform more >>= fun more_ ->
+    return (a :: more_)
+
+(* Construct a shape from a list of natural numbers *)
+let shape_of_nat_list nats = IShape (List.map ~f:(fun x -> INat x) nats)
+
+(* Put a type annotation an an AST node *)
 let rec annot_elt_type
     (idxs: srt env)
     (typs: kind env)
@@ -124,6 +149,24 @@ and annot_expr_type
                                            typ option ann_elt) expr_form) =
     match expr with AnnRExpr (_, e) ->
       match e with
+      | Arr (dims, data) ->
+        let arr_size: int = List.fold_left ~f:( * ) ~init:1 dims
+        and elts_annot = List.map ~f:(annot_elt_type idxs typs vars) data in
+        let array_type =
+          (* Fail if any dimension is negative or if they don't match the number
+             of array elements we're given. *)
+          (if (arr_size = List.length data) && (List.for_all ~f:((<=) 0) dims)
+           then return (shape_of_nat_list dims) else None) >>= fun array_shape ->
+          (* Fail if any element is ill-typed. *)
+          option_list_xform
+            (List.map ~f:typ_of_t_elt
+               elts_annot) >>= fun (elt_types: typ list) ->
+          (* Fail if the elements don't all have the same type. *)
+          uniq_typ elt_types >>=  fun (uniq_elt_type: typ) ->
+          (* Use the shape idx constructed from the given dimensions and the
+             derived unique element type to construct the array's type. *)
+          return (TArray (array_shape, uniq_elt_type)) in
+        (array_type, Arr (dims, elts_annot))
       | Var name as v_ -> (List.Assoc.find vars name, v_)
       | Pack (new_idxs, AnnRExpr (a, body), TDSum (ivars, t)) ->
         let AnnRExpr (body_typ, _) as body_annot =
