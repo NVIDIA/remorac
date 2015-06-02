@@ -128,12 +128,17 @@ let rec expand_shape (s: idx) : idx list option =
 
 (* Extract the fully nested shape of a type (non-arrays have scalar shape) *)
 let rec shape_of_typ (t: typ) : idx list option =
-    match t with
-    | TArray (s, t) ->
-      expand_shape s >>= fun s_ ->
-      shape_of_typ t >>= fun t_ ->
-      List.append s_ t_ |> return
-    | _ -> Some []
+  match t with
+  | TArray (s, t) ->
+    expand_shape s >>= fun s_ ->
+    shape_of_typ t >>= fun t_ ->
+    List.append s_ t_ |> return
+  | _ -> Some []
+let rec elt_of_typ (t: typ) : typ option =
+  match t with
+  | TArray (_, ((TArray (_, t)) as subarray)) -> elt_of_typ subarray
+  | TArray (_, t) -> Some t
+  | _ -> None
 
 (* Canonicalize a type by rewriting TArrays in fully nested form *)
 let rec canonicalize_typ = function
@@ -149,10 +154,13 @@ let rec canonicalize_typ = function
     canonicalize_typ ret >>= fun ret_ ->
     TFun (args_, ret_) |> return
   | TArray (IShape [], (TArray _ as elt)) -> canonicalize_typ elt
-  | TArray (IShape [], elt) -> canonicalize_typ elt
+  | TArray (IShape [], elt) as scalar -> scalar |> return
   | TArray (IVar v, (TArray _ as elt)) ->
     canonicalize_typ elt >>= fun sub_array ->
     TArray (IVar v, sub_array) |> return
+  | TArray (IShape [dim], elt_typ) ->
+    canonicalize_typ elt_typ >>= fun elt_canon ->
+    TArray (IShape [dim], elt_canon) |> return
   | TArray (IShape (dim :: dims), elt_typ) ->
     canonicalize_typ (TArray (IShape dims, elt_typ)) >>= fun sub_array ->
     TArray (IShape [dim], sub_array) |> return
@@ -194,15 +202,48 @@ let rec typ_equal (t1: typ) (t2: typ) : bool =
 let rec frame_contribution (cell_typ: typ) (arg_typ: typ) : idx list option =
   canonicalize_typ cell_typ >>= fun ct_canonical ->
   canonicalize_typ arg_typ >>= fun at_canonical ->
-  match at_canonical with
-  | TArray (IShape [], elt_type) ->
-    Option.some_if (typ_equal ct_canonical elt_type) ([IShape []])
+  (* Base case: the types are equal *)
+  if typ_equal ct_canonical at_canonical
+  then Some [IShape []]
+  (* Inductive case: peel away a layer of the actual type's shape *)
+  else match at_canonical with
   | TArray (shp, elt_type) ->
-    if (typ_equal ct_canonical elt_type)
+    canonicalize_typ (TArray (IShape [], elt_type)) >>= fun elt_array ->
+    if (typ_equal ct_canonical elt_array)
     then Some [shp]
     else frame_contribution cell_typ elt_type >>= fun (elt_contrib) ->
     shp :: elt_contrib |> return
   | _ -> None
+
+(* Some true if xs is a prefix of ys, Some false if ys is a prefix of xs,
+   otherwise, None. *)
+let rec prefix_of (xs: 'a list) (ys: 'a list) : bool option =
+  match (xs, ys) with
+  | ([], _) -> Some true
+  | (_, []) -> Some false
+  | (x::xs_, y::ys_) ->
+    if x = y then prefix_of xs_ ys_ else None
+(* Choose which list is prefixed by the other *)
+let prefixed (xs: 'a list) (ys: 'a list) : 'a list option =
+  match prefix_of xs ys with
+  | Some true -> Some ys
+  | Some false -> Some xs
+  | None -> None
+(* Select the list element which is prefixed by all others, if there is one *)
+let prefix_max (lsts: 'a list list) : 'a list option =
+  match lsts with
+  | [] -> None
+  | [lst] -> Some lst
+  | lst::lsts_ -> (List.fold_left
+                     ~init:(Some lst)
+                     ~f:(fun l r -> l >>= fun l_ -> prefixed l_ r)
+                     lsts_)
+
+(* Build an array type from a given nested shape *)
+let build_array_type (shp: idx list) (elt: typ) : typ option =
+  match shp with
+  | [] ->TArray (IShape shp, elt) |> canonicalize_typ
+  | _ -> List.fold_right ~f:(fun i t -> TArray (i, t)) ~init:elt shp |> canonicalize_typ
 
 (* Put a type annotation an an AST node *)
 let rec annot_elt_type
@@ -237,6 +278,32 @@ and annot_expr_type
                                            typ option ann_elt) expr_form) =
     match expr with AnnRExpr (_, e) ->
       match e with
+      | App (fn, args) ->
+        let fn_annot = annot_expr_type idxs typs vars fn
+        and args_annot = List.map ~f:(annot_expr_type idxs typs vars) args in
+        let result_type =
+          (* Fail if the function's element type is not well-formed. *)
+          (typ_of_t_expr fn_annot) >>= shape_of_typ >>= fun (fun_shape : idx list) ->
+          (* Fail if the function's shape is not well-formed. *)
+          (match (typ_of_t_expr fn_annot) >>= elt_of_typ with
+          | Some (TFun (cell_typs, ret_typ))
+            -> Some (cell_typs, ret_typ)
+          (* Fail if we don't have a well-typed function. *)
+          | _ -> None) >>= fun (arg_expected_types, ret_cell_type) ->
+          (* Fail if we don't have well-typed arguments. *)
+          option_list_xform
+            (List.map ~f:typ_of_t_expr args_annot) >>= fun arg_actual_types ->
+          (* Identify each argument's contribution to the frame shape. *)
+          option_list_xform
+            (List.map2_exn ~f:frame_contribution
+               arg_expected_types arg_actual_types) >>= fun arg_frame_shapes ->
+          (* Find the largest under prefix ordering (the principal frame), if
+             there is one. If not, fail. *)
+          prefix_max (fun_shape :: arg_frame_shapes) >>= fun principal_frame_shape ->
+          (* Assemble a type which wraps the application's principal frame
+             around the function's result cell type. *)
+          (build_array_type principal_frame_shape ret_cell_type)
+        in (result_type, App (fn_annot, args_annot))
       | Arr (dims, data) ->
         let arr_size: int = List.fold_left ~f:( * ) ~init:1 dims
         and elts_annot = List.map ~f:(annot_elt_type idxs typs vars) data in
