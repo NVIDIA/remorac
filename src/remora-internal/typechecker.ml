@@ -88,7 +88,7 @@ let rec kind_of_typ (idxs: srt env)
   | TVar name -> List.Assoc.find types name
 ;;
 
-(**)
+(* Return the unique type in a list (or None if there is no such type) *)
 let rec uniq_typ (typs: typ list) : (typ option) =
   match typs with
   | [] -> None
@@ -97,7 +97,7 @@ let rec uniq_typ (typs: typ list) : (typ option) =
     uniq_typ ts >>= fun (rest: typ) ->
     if (t = rest) then return t else None
 
-(**)
+(* Read the type annotation from an AST node *)
 let typ_of_t_expr = function
   | AnnRExpr (t, _) -> t
 let typ_of_t_elt = function
@@ -111,10 +111,98 @@ let rec option_list_xform (options: 'a option list) : 'a list option =
   | None :: _ -> None
   | (Some a) :: more ->
     option_list_xform more >>= fun more_ ->
-    return (a :: more_)
+    a :: more_ |> return
 
 (* Construct a shape from a list of natural numbers *)
 let shape_of_nat_list nats = IShape (List.map ~f:(fun x -> INat x) nats)
+
+(* Rewrite a shape in its fully-nested form *)
+let rec expand_shape (s: idx) : idx list option =
+  match s with
+  | IVar _ as v -> Some [v]
+  | IShape [] -> Some []
+  | IShape (dim :: dims) ->
+    (expand_shape (IShape dims)) >>= fun rest ->
+    IShape [dim] :: rest |> return
+  | INat _ | ISum _ -> None
+
+(* Extract the fully nested shape of a type (non-arrays have scalar shape) *)
+let rec shape_of_typ (t: typ) : idx list option =
+    match t with
+    | TArray (s, t) ->
+      expand_shape s >>= fun s_ ->
+      shape_of_typ t >>= fun t_ ->
+      List.append s_ t_ |> return
+    | _ -> Some []
+
+(* Canonicalize a type by rewriting TArrays in fully nested form *)
+let rec canonicalize_typ = function
+  | TVar _ | TInt | TFloat | TBool as v -> Some v
+  | TDProd (bindings, body) ->
+    canonicalize_typ body >>= fun new_body -> TDProd (bindings, new_body) |> return
+  | TDSum (bindings, body) ->
+    canonicalize_typ body >>= fun new_body -> TDSum (bindings, new_body) |> return
+  | TAll (bindings, body) ->
+    canonicalize_typ body >>= fun new_body -> TAll (bindings, new_body) |> return
+  | TFun (args, ret) ->
+    option_list_xform (List.map ~f:canonicalize_typ args) >>= fun args_ ->
+    canonicalize_typ ret >>= fun ret_ ->
+    TFun (args_, ret_) |> return
+  | TArray (IShape [], (TArray _ as elt)) -> canonicalize_typ elt
+  | TArray (IShape [], elt) -> canonicalize_typ elt
+  | TArray (IVar v, (TArray _ as elt)) ->
+    canonicalize_typ elt >>= fun sub_array ->
+    TArray (IVar v, sub_array) |> return
+  | TArray (IShape (dim :: dims), elt_typ) ->
+    canonicalize_typ (TArray (IShape dims, elt_typ)) >>= fun sub_array ->
+    TArray (IShape [dim], sub_array) |> return
+(* Check whether two types are equivalent. *)
+let rec typ_equal (t1: typ) (t2: typ) : bool =
+  match (t1, t2) with
+  | (TInt, TInt) | (TFloat, TFloat) | (TBool, TBool) -> true
+  | (TDProd (bind1, body1), TDProd (bind2, body2))
+  | (TDSum (bind1, body1), TDSum (bind2, body2)) ->
+    if (List.length bind1) <> (List.length bind2) then false
+    else
+      let new_vars = List.map ~f:(fun _ -> gensym "__fresh_ivar=") bind1 in
+      let new_body1 =
+        idx_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (IVar (fst x))) bind1)) body1
+      and new_body2 =
+        idx_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (IVar (fst x))) bind2)) body2
+      in typ_equal new_body1 new_body2
+  | (TAll (bind1, body1), TAll (bind2, body2)) ->
+    if (List.length bind1) <> (List.length bind2) then false
+    else
+      let new_vars = List.map ~f:(fun _ -> gensym "__fresh_tvar=") bind1 in
+      let new_body1 =
+        typ_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (TVar x)) bind1)) body1
+      and new_body2 =
+        typ_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (TVar x)) bind2)) body2
+      in typ_equal new_body1 new_body2
+  | (TArray (s1, elts1), TArray (s2, elts2)) ->
+    (s1 = s2) && (typ_equal elts1 elts2)
+  | (TArray _, TArray _) ->
+    Option.value ~default:false (canonicalize_typ t1 >>= fun t1_ ->
+                                 canonicalize_typ t2 >>= fun t2_ ->
+                                 typ_equal t1_ t2_ |> return)
+  | (TFun (args1, ret1), TFun (args2, ret2)) ->
+    (List.for_all2_exn ~f:typ_equal args1 args2) && (typ_equal ret1 ret2)
+  | (TVar x, TVar y) -> x = y
+  | _ -> false
+
+(* Idenfity the frame shape on a single argument based on its type *)
+let rec frame_contribution (cell_typ: typ) (arg_typ: typ) : idx list option =
+  canonicalize_typ cell_typ >>= fun ct_canonical ->
+  canonicalize_typ arg_typ >>= fun at_canonical ->
+  match at_canonical with
+  | TArray (IShape [], elt_type) ->
+    Option.some_if (typ_equal ct_canonical elt_type) ([IShape []])
+  | TArray (shp, elt_type) ->
+    if (typ_equal ct_canonical elt_type)
+    then Some [shp]
+    else frame_contribution cell_typ elt_type >>= fun (elt_contrib) ->
+    shp :: elt_contrib |> return
+  | _ -> None
 
 (* Put a type annotation an an AST node *)
 let rec annot_elt_type
@@ -155,8 +243,9 @@ and annot_expr_type
         let array_type =
           (* Fail if any dimension is negative or if they don't match the number
              of array elements we're given. *)
-          (if (arr_size = List.length data) && (List.for_all ~f:((<=) 0) dims)
-           then return (shape_of_nat_list dims) else None) >>= fun array_shape ->
+          (Option.some_if ((arr_size = List.length data)
+                           && (List.for_all ~f:((<=) 0) dims))
+             (shape_of_nat_list dims)) >>= fun array_shape ->
           (* Fail if any element is ill-typed. *)
           option_list_xform
             (List.map ~f:typ_of_t_elt

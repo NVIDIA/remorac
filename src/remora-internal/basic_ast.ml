@@ -31,6 +31,14 @@ open Core.Std
 (* representation of variables, may later want to add more info *)
 type var = string with sexp
 
+let gensym_counter = ref 0
+let gensym_reset () = gensym_counter := 0;;
+let gensym (v: string) : var =
+  let id_number = !gensym_counter in
+  let new_name = String.concat [v; string_of_int id_number]
+  and _ = gensym_counter := 1 + id_number
+  in new_name;;
+
 (* Remora indices *)
 type idx = 
 | INat of int

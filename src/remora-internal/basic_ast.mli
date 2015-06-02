@@ -30,6 +30,9 @@ open Core.Std
 
 type var = bytes with sexp
 
+val gensym_reset : unit -> unit
+val gensym : string -> var
+
 type idx = 
 | INat of int
 | IShape of idx list
