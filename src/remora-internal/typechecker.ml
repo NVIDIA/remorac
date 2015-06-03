@@ -56,7 +56,7 @@ let rec srt_of_idx (idxs: srt env) (i: idx) : srt option =
   | ISum (left, right) ->
     let d_srts = List.map ~f:(srt_of_idx idxs) [left; right]
     in if (List.for_all d_srts ~f:((=) (Some SNat)))
-      then Some SShape else None
+      then Some SNat else None
   | IVar name -> List.Assoc.find idxs name
 ;;
 
@@ -78,9 +78,11 @@ let rec kind_of_typ (idxs: srt env)
       then kind_of_typ idxs types out
       else None
   | TArray (shape, elts) ->
-    srt_of_idx idxs shape >>= fun _ ->
-    kind_of_typ idxs types elts >>= fun e_kind ->
-    Some e_kind
+    srt_of_idx idxs shape >>= fun i_srt ->
+    if (i_srt = SShape)
+    then (kind_of_typ idxs types elts >>= fun e_kind ->
+          Some e_kind)
+    else None
   | TAll (vars, body)
     -> kind_of_typ idxs
                    (env_update (List.map ~f:(fun x -> (x,())) vars) types)
@@ -88,7 +90,8 @@ let rec kind_of_typ (idxs: srt env)
   | TVar name -> List.Assoc.find types name
 ;;
 
-(* Return the unique type in a list (or None if there is no such type) *)
+(* Return the unique type in a list (or None if there is no such type)
+   TODO: take type equality into account *)
 let rec uniq_typ (typs: typ list) : (typ option) =
   match typs with
   | [] -> None
@@ -136,66 +139,92 @@ let rec shape_of_typ (t: typ) : idx list option =
   | _ -> Some []
 let rec elt_of_typ (t: typ) : typ option =
   match t with
-  | TArray (_, ((TArray (_, t)) as subarray)) -> elt_of_typ subarray
+  | TArray (_, ((TArray (_, _)) as subarray)) -> elt_of_typ subarray
   | TArray (_, t) -> Some t
   | _ -> None
 
-(* Canonicalize a type by rewriting TArrays in fully nested form *)
+(* Canonicalize a type by rewriting TArrays in fully nested form. May reutrn
+   None if given an array type with an invalid shape. *)
 let rec canonicalize_typ = function
   | TVar _ | TInt | TFloat | TBool as v -> Some v
   | TDProd (bindings, body) ->
-    canonicalize_typ body >>= fun new_body -> TDProd (bindings, new_body) |> return
+    canonicalize_typ body >>= fun new_body ->
+    TDProd (bindings, new_body) |> return
   | TDSum (bindings, body) ->
-    canonicalize_typ body >>= fun new_body -> TDSum (bindings, new_body) |> return
+    canonicalize_typ body >>= fun new_body ->
+    TDSum (bindings, new_body) |> return
   | TAll (bindings, body) ->
-    canonicalize_typ body >>= fun new_body -> TAll (bindings, new_body) |> return
+    canonicalize_typ body >>= fun new_body ->
+    TAll (bindings, new_body) |> return
   | TFun (args, ret) ->
     option_list_xform (List.map ~f:canonicalize_typ args) >>= fun args_ ->
     canonicalize_typ ret >>= fun ret_ ->
     TFun (args_, ret_) |> return
-  | TArray (IShape [], (TArray _ as elt)) -> canonicalize_typ elt
-  | TArray (IShape [], elt) as scalar -> scalar |> return
+  | TArray (shape, (TArray (IShape [], elt_typ))) ->
+    canonicalize_typ (TArray (shape, elt_typ))
+  | TArray (IShape [], (TArray _ as sub_array)) -> canonicalize_typ sub_array
+  | TArray (IShape [], elt_typ) ->
+    canonicalize_typ elt_typ >>= fun elt_typ_ ->
+    TArray (IShape [], elt_typ_) |> return
   | TArray (IVar v, (TArray _ as elt)) ->
     canonicalize_typ elt >>= fun sub_array ->
     TArray (IVar v, sub_array) |> return
+  | TArray (IVar v, elt_typ) ->
+    canonicalize_typ elt_typ >>= fun elt_typ_ ->
+    TArray (IVar v, elt_typ_) |> return
   | TArray (IShape [dim], elt_typ) ->
     canonicalize_typ elt_typ >>= fun elt_canon ->
     TArray (IShape [dim], elt_canon) |> return
   | TArray (IShape (dim :: dims), elt_typ) ->
     canonicalize_typ (TArray (IShape dims, elt_typ)) >>= fun sub_array ->
     TArray (IShape [dim], sub_array) |> return
+  | TArray _ -> None
 (* Check whether two types are equivalent. *)
-let rec typ_equal (t1: typ) (t2: typ) : bool =
-  match (t1, t2) with
-  | (TInt, TInt) | (TFloat, TFloat) | (TBool, TBool) -> true
-  | (TDProd (bind1, body1), TDProd (bind2, body2))
-  | (TDSum (bind1, body1), TDSum (bind2, body2)) ->
-    if (List.length bind1) <> (List.length bind2) then false
-    else
-      let new_vars = List.map ~f:(fun _ -> gensym "__fresh_ivar=") bind1 in
-      let new_body1 =
-        idx_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (IVar (fst x))) bind1)) body1
-      and new_body2 =
-        idx_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (IVar (fst x))) bind2)) body2
-      in typ_equal new_body1 new_body2
-  | (TAll (bind1, body1), TAll (bind2, body2)) ->
-    if (List.length bind1) <> (List.length bind2) then false
-    else
-      let new_vars = List.map ~f:(fun _ -> gensym "__fresh_tvar=") bind1 in
-      let new_body1 =
-        typ_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (TVar x)) bind1)) body1
-      and new_body2 =
-        typ_into_typ (List.zip_exn new_vars (List.map ~f:(fun x -> (TVar x)) bind2)) body2
-      in typ_equal new_body1 new_body2
-  | (TArray (s1, elts1), TArray (s2, elts2)) ->
-    (s1 = s2) && (typ_equal elts1 elts2)
-  | (TArray _, TArray _) ->
-    Option.value ~default:false (canonicalize_typ t1 >>= fun t1_ ->
-                                 canonicalize_typ t2 >>= fun t2_ ->
-                                 typ_equal t1_ t2_ |> return)
-  | (TFun (args1, ret1), TFun (args2, ret2)) ->
-    (List.for_all2_exn ~f:typ_equal args1 args2) && (typ_equal ret1 ret2)
-  | (TVar x, TVar y) -> x = y
+let typ_equal (t1: typ) (t2: typ) : bool =
+  let rec typ_equal_ (t1: typ) (t2: typ) : bool =
+    match (t1, t2) with
+    | (TInt, TInt) | (TFloat, TFloat) | (TBool, TBool) -> true
+    | (TDProd (bind1, body1), TDProd (bind2, body2))
+    | (TDSum (bind1, body1), TDSum (bind2, body2)) ->
+      if (List.length bind1) <> (List.length bind2) then false
+      else
+        let new_vars = List.map ~f:(fun _ -> gensym "__fresh_ivar=") bind1 in
+        let new_body1 =
+          idx_into_typ (List.zip_exn
+                          (List.map ~f:fst bind1)
+                          (List.map ~f:(fun x -> (IVar x)) new_vars)) body1
+        and new_body2 =
+          idx_into_typ (List.zip_exn
+                          (List.map ~f:fst bind2)
+                          (List.map ~f:(fun x -> (IVar x)) new_vars)) body2
+        in typ_equal_ new_body1 new_body2
+    | (TAll (bind1, body1), TAll (bind2, body2)) ->
+      if (List.length bind1) <> (List.length bind2) then false
+      else
+        let new_vars = List.map ~f:(fun _ -> gensym "__fresh_tvar=") bind1 in
+        let new_body1 =
+          typ_into_typ
+            (List.zip_exn bind1 (List.map ~f:(fun x -> (TVar x)) new_vars))
+            body1
+        and new_body2 =
+          typ_into_typ
+            (List.zip_exn bind2 (List.map ~f:(fun x -> (TVar x)) new_vars))
+            body2
+        in typ_equal_ new_body1 new_body2
+    | (TArray (s1, elts1), TArray (s2, elts2)) ->
+      (* TODO: check idx equality *)
+      (s1 = s2) && (typ_equal_ elts1 elts2)
+    (* | (TArray _, TArray _) -> *)
+    (*   Option.value ~default:false (canonicalize_typ t1 >>= fun t1_ -> *)
+    (*                                canonicalize_typ t2 >>= fun t2_ -> *)
+    (*                                typ_equal_ t1_ t2_ |> return) *)
+    | (TFun (args1, ret1), TFun (args2, ret2)) ->
+      (List.for_all2_exn ~f:typ_equal_ args1 args2) && (typ_equal_ ret1 ret2)
+    | (TVar x, TVar y) -> x = y
+    | _ -> false
+  in
+  match (canonicalize_typ t1, canonicalize_typ t2) with
+  | (Some t1_, Some t2_) -> typ_equal_ t1_ t2_
   | _ -> false
 
 (* Idenfity the frame shape on a single argument based on its type *)
@@ -243,7 +272,9 @@ let prefix_max (lsts: 'a list list) : 'a list option =
 let build_array_type (shp: idx list) (elt: typ) : typ option =
   match shp with
   | [] ->TArray (IShape shp, elt) |> canonicalize_typ
-  | _ -> List.fold_right ~f:(fun i t -> TArray (i, t)) ~init:elt shp |> canonicalize_typ
+  | _ -> (List.fold_right
+            ~f:(fun i t -> TArray (i, t))
+            ~init:elt shp) |> canonicalize_typ
 
 (* Put a type annotation an an AST node *)
 let rec annot_elt_type
@@ -259,7 +290,8 @@ let rec annot_elt_type
       | Bool _ as e_ -> (Some TBool, e_)
       (* TODO: include well-formedness check for types the vars are bound at *)
       | Lam (bindings, body)
-        -> (match (annot_expr_type idxs typs (env_update bindings vars) body) with
+        -> (match (annot_expr_type idxs typs (env_update bindings vars)
+                     body) with
         | AnnRExpr (Some t, _) as well_typed
           -> (Some (TFun (List.map ~f:snd bindings, t)),
               Lam (bindings, well_typed))
@@ -283,7 +315,8 @@ and annot_expr_type
         and args_annot = List.map ~f:(annot_expr_type idxs typs vars) args in
         let result_type =
           (* Fail if the function's element type is not well-formed. *)
-          (typ_of_t_expr fn_annot) >>= shape_of_typ >>= fun (fun_shape : idx list) ->
+          (typ_of_t_expr fn_annot) >>= shape_of_typ
+          >>= fun (fun_shape : idx list) ->
           (* Fail if the function's shape is not well-formed. *)
           (match (typ_of_t_expr fn_annot) >>= elt_of_typ with
           | Some (TFun (cell_typs, ret_typ))
@@ -299,7 +332,8 @@ and annot_expr_type
                arg_expected_types arg_actual_types) >>= fun arg_frame_shapes ->
           (* Find the largest under prefix ordering (the principal frame), if
              there is one. If not, fail. *)
-          prefix_max (fun_shape :: arg_frame_shapes) >>= fun principal_frame_shape ->
+          prefix_max (fun_shape :: arg_frame_shapes)
+          >>= fun principal_frame_shape ->
           (* Assemble a type which wraps the application's principal frame
              around the function's result cell type. *)
           (build_array_type principal_frame_shape ret_cell_type)

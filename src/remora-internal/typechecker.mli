@@ -38,6 +38,15 @@ val srt_of_idx : srt env -> idx -> srt option
 
 val kind_of_typ : srt env -> kind env -> typ -> kind option
 
+val uniq_typ : typ list -> typ option
+
+val shape_of_typ : typ -> idx list option
+val elt_of_typ : typ -> typ option
+
+val canonicalize_typ : typ -> typ option
+
+val typ_equal : typ -> typ -> bool
+
 val annot_elt_type : srt env -> kind env -> typ env -> 'a ann_elt
   -> typ option ann_elt
 val annot_expr_type : srt env -> kind env -> typ env -> 'a ann_expr

@@ -27,9 +27,11 @@
 (******************************************************************************)
 
 module AST = Test_basic_ast.UnitTests;;
+module Typecheck = Test_typechecker.UnitTests;;
 open OUnit2
 
 let () =
-  run_test_tt_main AST.suite_init_drop
+  run_test_tt_main AST.suite_init_drop;
+  run_test_tt_main Typecheck.tests;
 ;;
 
