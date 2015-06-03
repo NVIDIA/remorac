@@ -619,6 +619,24 @@ end = struct
       (TArray (IShape [],
                (TFun ([TArray (IShape [INat 6], TInt)],
                       TArray (IShape [INat 6], TInt)))))
+  let test_16 _ = assert_expr_type dep_sum_project (TArray (IShape [], TInt))
+  let test_17 _ =
+    assert_expr_type
+      remora_compose
+      (TDProd
+         (["s1", SShape; "s2", SShape; "s3", SShape],
+          TAll
+            (["alpha"; "beta"; "gamma"],
+             TArray (IShape [],
+                     TFun ([TArray (IShape [],
+                                    TFun ([TArray (IVar "s1", TVar "alpha")],
+                                          TArray (IVar "s2", TVar "beta")));
+                            TArray (IShape [],
+                                    TFun ([TArray (IVar "s2", TVar "beta")],
+                                          TArray (IVar "s3", TVar "gamma")))],
+                           TArray (IShape [],
+                                   TFun ([TArray (IVar "s1", TVar "alpha")],
+                                         TArray (IVar "s3", TVar "gamma"))))))))
   let tests =
     let open OUnit2 in
     "add type annotation to an expression node">:::
@@ -636,7 +654,9 @@ end = struct
        "malformed type abstraction">:: test_12;
        "type application">:: test_13;
        "index abstraction">:: test_14;
-       "index application">:: test_15]
+       "index application">:: test_15;
+       "destruct dependent sum">:: test_16;
+       "function composition">:: test_17]
 end
 
 module UnitTests : sig

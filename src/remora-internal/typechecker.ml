@@ -434,7 +434,25 @@ and annot_expr_type
         then (Some (TDSum (ivars, t)),
               Pack (new_idxs, body_annot, TDSum (ivars, t)))
         else (None, Pack (new_idxs, body_annot, TDSum (ivars, t)))
-      (* | Unpack (ivars, v, dsum, body) -> *)
+      | Unpack (ivars, v, dsum, body) ->
+        let (AnnRExpr (dsum_type, _)) as dsum_annot =
+          annot_expr_type idxs typs vars dsum in
+        let (witnesses, contents_binding) =
+          (match dsum_type with
+          | Some (TDSum (w, t)) -> (w, [v, t])
+          | _ -> ([], [])) in
+        let body_annot =
+          annot_expr_type
+            (env_update witnesses idxs)
+            typs
+            (env_update contents_binding vars)
+            body in
+        let result_type =
+          typ_of_t_expr body_annot >>= fun body_type ->
+          Option.some_if
+            (kind_of_typ idxs typs body_type = Some ())
+            body_type in
+        (result_type, Unpack (ivars, v, dsum_annot, body_annot))
   in AnnRExpr (new_type, new_node)
 ;;
 
