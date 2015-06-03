@@ -590,6 +590,10 @@ end = struct
     assert_expr_type
       nested_to_unary_app
       (TArray (IShape [INat 3; INat 2], TInt))
+  let test_10 _ =
+    assert_expr_type
+      dep_sum_create
+      (TDSum ([("d", SNat)], TArray (IShape [IVar "d"], TInt)))
   let tests =
     let open OUnit2 in
     "add type annotation to an expression node">:::
@@ -601,7 +605,8 @@ end = struct
        "unary application">:: test_6;
        "binary application">:: test_7;
        "apply unary function to nested arg">:: test_8;
-       "apply nested function to vector arg">:: test_9]
+       "apply nested function to vector arg">:: test_9;
+       "construct dependent sum">:: test_10]
 end
 
 module UnitTests : sig

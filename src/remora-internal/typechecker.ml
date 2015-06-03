@@ -369,11 +369,12 @@ and annot_expr_type
             (* Does substituting those indices into the declared type give the
                body's type? If the previous check passed, the lists we're
                zipping must have the same length. *)
-            && t = (idx_into_typ
-                      (List.zip_exn (List.map ~f:fst ivars) new_idxs)
-                      (Option.value_exn body_typ))
+            && (Option.value_exn body_typ)
+            = (idx_into_typ (List.zip_exn (List.map ~f:fst ivars) new_idxs) t)
         then (Some (TDSum (ivars, t)),
               Pack (new_idxs, body_annot, TDSum (ivars, t)))
         else (None, Pack (new_idxs, body_annot, TDSum (ivars, t)))
   in AnnRExpr (new_type, new_node)
 ;;
+
+(* Convert a "maybe well-typed" AST into either Some typ ann_<tree> or None. *)
