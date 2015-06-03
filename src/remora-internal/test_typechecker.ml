@@ -607,6 +607,18 @@ end = struct
       (TArray (IShape [],
                TFun ([TArray (IShape [], TBool)],
                      TArray (IShape [], TBool))))
+  let test_14 _ =
+    assert_expr_type
+      index_abst
+      (TDProd (["d", SNat],
+               TArray (IShape [], TFun ([TArray (IShape [IVar "d"], TInt)],
+                                        TArray (IShape [IVar "d"], TInt)))))
+  let test_15 _ =
+    assert_expr_type
+      index_app
+      (TArray (IShape [],
+               (TFun ([TArray (IShape [INat 6], TInt)],
+                      TArray (IShape [INat 6], TInt)))))
   let tests =
     let open OUnit2 in
     "add type annotation to an expression node">:::
@@ -622,7 +634,9 @@ end = struct
        "construct dependent sum">:: test_10;
        "type abstraction">:: test_11;
        "malformed type abstraction">:: test_12;
-       "type application">:: test_13]
+       "type application">:: test_13;
+       "index abstraction">:: test_14;
+       "index application">:: test_15]
 end
 
 module UnitTests : sig

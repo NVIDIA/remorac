@@ -375,8 +375,29 @@ and annot_expr_type
           typ_of_t_expr body_annot >>= fun body_type ->
           TAll (bindings, body_type) |> return
         in (tlam_type, TLam (bindings, body_annot))
-      (* | IApp (fn, args) -> *)
-      (* | ILam (bindings, body) -> *)
+      | IApp (fn, idx_args) ->
+        let fn_annot = annot_expr_type idxs typs vars fn in
+        let result_type =
+          match typ_of_t_expr fn_annot with
+          | Some (TDProd (ivar_bindings, tbody)) ->
+            let ivars = List.map ~f:fst ivar_bindings
+            and sorts = List.map ~f:snd ivar_bindings in
+            List.zip ivars idx_args >>= fun idx_subst ->
+            Option.some_if
+              (* args all have correct sorts *)
+              (List.for_all2_exn
+                 ~f:(fun arg arg_sort -> srt_of_idx idxs arg = Some arg_sort)
+                 idx_args sorts)
+              (idx_into_typ idx_subst tbody)
+          | _ -> None
+        in (result_type, IApp (fn_annot, idx_args))
+      | ILam (bindings, body) ->
+        let body_annot =
+          annot_expr_type (env_update bindings idxs) typs vars body in
+        let ilam_type =
+          typ_of_t_expr body_annot >>= fun body_type ->
+          TDProd (bindings, body_type) |> return
+        in (ilam_type, ILam (bindings, body_annot))
       | Arr (dims, data) ->
         let arr_size: int = List.fold_left ~f:( * ) ~init:1 dims
         and elts_annot = List.map ~f:(annot_elt_type idxs typs vars) data in

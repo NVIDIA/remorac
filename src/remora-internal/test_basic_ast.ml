@@ -165,10 +165,12 @@ let remora_compose =
                            [(RExpr (App (RExpr (Var "f"),
                                          [RExpr (Var "x")])))])))) in
   let outer_lam =
-    RElt (Lam (["f", TFun ([TArray (IVar "s1", TVar "alpha")],
-                           TArray (IVar "s2", TVar "beta"));
-                "g", TFun ([TArray (IVar "s2", TVar "beta")],
-                           TArray (IVar "s3", TVar "gamma"))],
+    RElt (Lam (["f", TArray (IShape [],
+                             TFun ([TArray (IVar "s1", TVar "alpha")],
+                                   TArray (IVar "s2", TVar "beta")));
+                "g", TArray (IShape [],
+                             TFun ([TArray (IVar "s2", TVar "beta")],
+                                   TArray (IVar "s3", TVar "gamma")))],
                scalar_of_elt inner_lam)) in
   let type_lam =
     RExpr (TLam (["alpha"; "beta"; "gamma"],
