@@ -26,7 +26,7 @@
 (* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.       *)
 (******************************************************************************)
 
-open Test_basic_ast
+open Basic_ast
 open Typechecker
 module U = OUnit2;;
 
@@ -505,22 +505,103 @@ end = struct
        "scalar and vector of alpha-equivalent element type">:: test_11]
 end
 
+let assert_typ_equal (t1: typ) (t2: typ) =
+  U.assert_bool "types not equal" (typ_equal t1 t2)
+
 module Test_annot_elt_type : sig
   val tests: U.test
 end = struct
+  let typ_of_rem_elt ?(idxs=[])
+                     ?(typs=[])
+                     ?(vars=[])
+                     (e: rem_elt) : typ option =
+    e |> (annot_elt_init ~init:())
+      |> (annot_elt_type idxs typs vars)
+      |> typ_of_t_elt
+  let assert_elt_type (e: rem_elt) (check_typ: typ) =
+    match (typ_of_rem_elt e) with
+    | Some elt_typ -> assert_typ_equal elt_typ check_typ
+    | None -> U.assert_failure "expr is ill-typed"
+  let assert_ill_typed (e: rem_elt) =
+    U.assert_equal (typ_of_rem_elt e) None
+  open Test_basic_ast
+  let test_6 _ =
+    assert_elt_type
+      unary_lambda
+      (TFun ([TArray (IShape [], TInt)],
+             TArray (IShape [], TInt)))
+  let test_7 _ =
+    assert_elt_type
+      binary_lambda
+      (TFun ([TArray (IShape [INat 3], TFloat);
+              TArray (IShape [INat 1], TBool)],
+             TArray (IShape [], TInt)))
   let tests =
     let open OUnit2 in
     "add type annotation to an element node">:::
-      []
+      ["unary lambda">:: test_6;
+       "binary lambda">:: test_7]
 end
 
 module Test_annot_expr_type : sig
   val tests: U.test
 end = struct
+  let typ_of_rem_expr ?(idxs=[])
+                      ?(typs=[])
+                      ?(vars=[])
+                      (e: rem_expr) : typ option =
+    e |> (annot_expr_init ~init:())
+      |> (annot_expr_type idxs typs vars)
+      |> typ_of_t_expr
+  let assert_expr_type (e: rem_expr) (check_typ: typ) =
+    match (typ_of_rem_expr e) with
+    | Some expr_typ -> assert_typ_equal expr_typ check_typ
+    | None -> U.assert_failure "expr is ill-typed"
+  let assert_ill_typed (e: rem_expr) =
+    U.assert_equal (typ_of_rem_expr e) None
+  open Test_basic_ast
+  let test_1 _ =
+    assert_expr_type
+      flat_arr_2_3
+      (TArray (IShape [INat 2; INat 3], TInt))
+  let test_2 _ = assert_expr_type arr_2 (TArray (IShape [INat 2], TBool))
+  let test_3 _ = assert_ill_typed arr_wrong
+  let test_4 _ =
+    assert_expr_type
+      nest_arr_2_3
+      (TArray (IShape [INat 2], TArray (IShape [INat 3], TInt)))
+  let test_5 _ =
+    assert_expr_type
+      nest_arr_2_3
+      (TArray (IShape [INat 2; INat 3], TInt))
+  let test_6 _ =
+    assert_expr_type
+      unary_app
+      (TArray (IShape [], TInt))
+  let test_7 _ =
+    assert_expr_type
+      binary_app
+      (TArray (IShape [], TInt))
+  let test_8 _ =
+    assert_expr_type
+      unary_to_nested_app
+      (TArray (IShape [INat 2; INat 3], TInt))
+  let test_9 _ =
+    assert_expr_type
+      nested_to_unary_app
+      (TArray (IShape [INat 3; INat 2], TInt))
   let tests =
     let open OUnit2 in
     "add type annotation to an expression node">:::
-      []
+      ["2x3 of int">:: test_1;
+       "2 of boolean">:: test_2;
+       "mismatching item shapes">:: test_3;
+       "2 of 3 of int">:: test_4;
+       "2 of 3 of int as 2x3 of int">:: test_5;
+       "unary application">:: test_6;
+       "binary application">:: test_7;
+       "apply unary function to nested arg">:: test_8;
+       "apply nested function to vector arg">:: test_9]
 end
 
 module UnitTests : sig
