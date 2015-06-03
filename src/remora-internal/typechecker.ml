@@ -288,13 +288,17 @@ let rec annot_elt_type
       | Int _ as e_ -> (Some TInt, e_)
       | Float _ as e_ -> (Some TFloat, e_)
       | Bool _ as e_ -> (Some TBool, e_)
-      (* TODO: include well-formedness check for types the vars are bound at *)
       | Lam (bindings, body)
         -> (match (annot_expr_type idxs typs (env_update bindings vars)
                      body) with
         | AnnRExpr (Some t, _) as well_typed
-          -> (Some (TFun (List.map ~f:snd bindings, t)),
-              Lam (bindings, well_typed))
+          -> if (List.for_all
+                   ~f:(fun (bind_type: typ) ->
+                     Some () = kind_of_typ idxs typs bind_type)
+                   (List.map ~f:snd bindings))
+            then (Some (TFun (List.map ~f:snd bindings, t)),
+                  Lam (bindings, well_typed))
+            else (None, Lam (bindings, well_typed))
         | AnnRExpr (None, _) as ill_typed
           -> (None, Lam (bindings, ill_typed)))
       | Expr e -> let AnnRExpr (t_opt, _) as subexpr =
