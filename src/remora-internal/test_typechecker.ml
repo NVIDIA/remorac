@@ -430,10 +430,79 @@ end
 module Test_frame_contribution : sig
   val tests: U.test
 end = struct
+  let test_1 _ =
+    U.assert_equal
+      (frame_contribution (TArray (IShape [], TInt)) (TArray (IShape [], TInt)))
+      (Some [IShape []])
+  let test_2 _ =
+    U.assert_equal
+      (frame_contribution (TArray (IShape [], TInt)) (TArray (IShape [], TFloat)))
+      None
+  let test_3 _ =
+    U.assert_equal
+      (frame_contribution
+         (TArray (IShape [], TFloat))
+         (TArray (IShape [IVar "l"], TFloat)))
+      (Some [IShape [IVar "l"]])
+  let test_4 _ =
+    U.assert_equal
+      (frame_contribution (TArray (IShape [], TBool)) (TArray (IVar "d", TBool)))
+      (Some [IVar "d"])
+  let test_5 _ =
+    U.assert_equal
+      (frame_contribution
+         (TArray (IShape [], TInt))
+         (TArray (IShape [IVar "l"; IVar "m"],
+                  TArray (IVar "d", TInt))))
+      (Some [IShape [IVar "l"]; IShape [IVar "m"]; IVar "d"])
+  let test_6 _ =
+    U.assert_equal
+      (frame_contribution
+         (TArray (IShape [INat 3], TInt))
+         (TArray (IShape [INat 4], TInt)))
+      None
+  let test_7 _ =
+    U.assert_equal
+      (frame_contribution (TArray (IShape [IVar "l"], TInt)) (TArray (IShape [], TInt)))
+      None
+  let test_8 _ =
+    U.assert_equal
+      (frame_contribution
+         (TArray (IVar "d", TArray (IShape [INat 4], TFloat)))
+         (TArray (IVar "d", TArray (IShape [INat 4], TFloat))))
+      (Some [IShape []])
+  let test_9 _ =
+    U.assert_equal
+      (frame_contribution
+         (TArray (IVar "d1", TArray (IShape [INat 4], TFloat)))
+         (TArray (IVar "d2", (TArray (IVar "d1", TArray (IShape [INat 4], TFloat))))))
+      (Some [IVar "d2"])
+  let test_10 _ =
+    U.assert_equal
+      (frame_contribution
+         (TArray (IVar "d1", TArray (IShape [INat 4], TFloat)))
+         (TArray (IVar "d1", (TArray (IVar "d2", TArray (IShape [INat 4], TFloat))))))
+      None
+  let test_11 _ =
+    U.assert_equal
+      (frame_contribution
+         (TArray (IShape [], TDSum (["x", SNat], TArray (IShape [IVar "x"], TFloat))))
+         (TArray (IShape [INat 3], TDSum (["y", SNat], TArray (IShape [IVar "y"], TFloat)))))
+      (Some [IShape [INat 3]])
   let tests =
     let open OUnit2 in
     "identify the frame portion of this type">:::
-      []
+      ["scalars">:: test_1;
+       "scalars with mismatched element">:: test_2;
+       "scalar and vector">:: test_3;
+       "scalar and unknown">:: test_4;
+       "scalar and matrix of unknown">:: test_5;
+       "vectors with mismatched length">:: test_6;
+       "vector and scalar">:: test_7;
+       "d1 of scalar">:: test_8;
+       "d2 of d1 of scalar">:: test_9;
+       "d1 of d2 of scalar (wrong nesting order)">:: test_10;
+       "scalar and vector of alpha-equivalent element type">:: test_11]
 end
 
 module Test_annot_elt_type : sig
