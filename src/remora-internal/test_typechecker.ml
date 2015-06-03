@@ -594,6 +594,19 @@ end = struct
     assert_expr_type
       dep_sum_create
       (TDSum ([("d", SNat)], TArray (IShape [IVar "d"], TInt)))
+  let test_11 _ =
+    assert_expr_type
+      type_abst
+      (TAll (["elt"], TArray (IShape [],
+                              TFun ([TArray (IShape [], TVar "elt")],
+                                    TArray (IShape [], TVar "elt")))))
+  let test_12 _ = assert_ill_typed type_abst_bad
+  let test_13 _ =
+    assert_expr_type
+      type_app
+      (TArray (IShape [],
+               TFun ([TArray (IShape [], TBool)],
+                     TArray (IShape [], TBool))))
   let tests =
     let open OUnit2 in
     "add type annotation to an expression node">:::
@@ -606,7 +619,10 @@ end = struct
        "binary application">:: test_7;
        "apply unary function to nested arg">:: test_8;
        "apply nested function to vector arg">:: test_9;
-       "construct dependent sum">:: test_10]
+       "construct dependent sum">:: test_10;
+       "type abstraction">:: test_11;
+       "malformed type abstraction">:: test_12;
+       "type application">:: test_13]
 end
 
 module UnitTests : sig

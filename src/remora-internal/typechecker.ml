@@ -276,6 +276,14 @@ let build_array_type (shp: idx list) (elt: typ) : typ option =
             ~f:(fun i t -> TArray (i, t))
             ~init:elt shp) |> canonicalize_typ
 
+(* Determine whether a type is a non-array (valid for use as an argument for
+   a type abstraction).
+   TODO: check whether this has to change to accommodate erasure *)
+let non_array_type (t: typ) : bool =
+  match t with
+  | TArray _ -> false
+  | _ -> true
+
 (* Put a type annotation an an AST node *)
 let rec annot_elt_type
     (idxs: srt env)
@@ -342,6 +350,33 @@ and annot_expr_type
              around the function's result cell type. *)
           (build_array_type principal_frame_shape ret_cell_type)
         in (result_type, App (fn_annot, args_annot))
+      | TApp (fn, typ_args) ->
+        let fn_annot = annot_expr_type idxs typs vars fn in
+        let result_type =
+          match typ_of_t_expr fn_annot with
+          | Some (TAll (tvars, tbody)) ->
+            (* Fail if the type argument list is a different length than the
+               type specifies. *)
+            List.zip tvars typ_args >>= fun typ_subst ->
+            Option.some_if
+              (* all type args well-kinded *)
+              (List.for_all
+                 ~f:(fun t -> kind_of_typ idxs typs t = Some ()) typ_args
+                (* all type args non-arrays *)
+               && List.for_all ~f:non_array_type typ_args)
+              (typ_into_typ typ_subst tbody)
+          | _ -> None
+        in (result_type, TApp (fn_annot, typ_args))
+      | TLam (bindings, body) ->
+        let env_extend = List.map ~f:(fun t -> (t, ())) bindings in
+        let body_annot =
+          annot_expr_type idxs (env_update env_extend typs) vars body in
+        let tlam_type =
+          typ_of_t_expr body_annot >>= fun body_type ->
+          TAll (bindings, body_type) |> return
+        in (tlam_type, TLam (bindings, body_annot))
+      (* | IApp (fn, args) -> *)
+      (* | ILam (bindings, body) -> *)
       | Arr (dims, data) ->
         let arr_size: int = List.fold_left ~f:( * ) ~init:1 dims
         and elts_annot = List.map ~f:(annot_elt_type idxs typs vars) data in
@@ -378,6 +413,7 @@ and annot_expr_type
         then (Some (TDSum (ivars, t)),
               Pack (new_idxs, body_annot, TDSum (ivars, t)))
         else (None, Pack (new_idxs, body_annot, TDSum (ivars, t)))
+      (* | Unpack (ivars, v, dsum, body) -> *)
   in AnnRExpr (new_type, new_node)
 ;;
 
