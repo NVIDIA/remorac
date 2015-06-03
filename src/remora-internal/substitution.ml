@@ -80,7 +80,8 @@ let rec idx_into_typ (sub: idx subst) (t: typ) : typ =
                         body))
   | TFun (ins, out) -> TFun ((List.map ~f:(idx_into_typ sub) ins),
                              idx_into_typ sub out)
-  | TArray (shape, elts) -> TArray (idx_into_idx sub shape, idx_into_typ sub elts)
+  | TArray (shape, elts) -> TArray (idx_into_idx sub shape,
+                                    idx_into_typ sub elts)
   | TAll (tvars, body) -> TAll (tvars, idx_into_typ sub body)
   | TVar v as tv -> tv
 

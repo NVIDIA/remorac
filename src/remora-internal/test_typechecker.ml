@@ -86,11 +86,15 @@ end = struct
       None
   let test_6 _ =
     U.assert_equal
-      (srt_of_idx ["foo", SNat; "bar", SShape] (IShape [(IVar "foo"); (INat 2)]))
+      (srt_of_idx
+         ["foo", SNat; "bar", SShape]
+         (IShape [(IVar "foo"); (INat 2)]))
       (Some SShape)
   let test_7 _ =
     U.assert_equal
-      (srt_of_idx ["foo", SNat; "bar", SShape] (IShape [(IVar "bar"); (INat 2)]))
+      (srt_of_idx
+         ["foo", SNat; "bar", SShape]
+         (IShape [(IVar "bar"); (INat 2)]))
       None
   let tests =
     let open OUnit2 in
@@ -123,16 +127,19 @@ end = struct
       (Some ())
   let test_4 _ =
     U.assert_equal
-      (kind_of_typ [] [] (TDProd (["len", SNat], TFun ([TArray (IVar "len", TInt)],
-                                                    TArray (IShape [], TBool)))))
+      (kind_of_typ [] []
+         (TDProd (["len", SNat], TFun ([TArray (IVar "len", TInt)],
+                                       TArray (IShape [], TBool)))))
       None
   let test_5 _ =
     U.assert_equal
-      (kind_of_typ [] [] (TDSum (["len", SNat], TArray (IShape [IVar "len"], TFloat))))
+      (kind_of_typ [] []
+         (TDSum (["len", SNat], TArray (IShape [IVar "len"], TFloat))))
       (Some ())
   let test_6 _ =
     U.assert_equal
-      (kind_of_typ [] [] (TDSum (["dims", SShape], TArray (IShape [IVar "dims"], TFloat))))
+      (kind_of_typ [] []
+         (TDSum (["dims", SShape], TArray (IShape [IVar "dims"], TFloat))))
       None
   let test_7 _ =
     U.assert_equal
@@ -194,7 +201,10 @@ end
 module Test_shape_of_typ : sig
   val tests: U.test
 end = struct
-  let test_1 _ = U.assert_equal (shape_of_typ (TArray (IShape [], TFloat))) (Some [])
+  let test_1 _ =
+    U.assert_equal
+      (shape_of_typ (TArray (IShape [], TFloat)))
+      (Some [])
   let test_2 _ =
     U.assert_equal
       (shape_of_typ (TArray (IShape [INat 3], TFloat)))
@@ -209,7 +219,10 @@ end = struct
       (Some [IShape [INat 3]; IShape [INat 4]])
   let test_5 _ =
     U.assert_equal
-      (shape_of_typ (TArray (IShape [INat 3], TArray (IVar "q", TArray (IShape [INat 2; INat 4], TInt)))))
+      (shape_of_typ (TArray (IShape [INat 3],
+                             TArray (IVar "q",
+                                     TArray (IShape [INat 2; INat 4],
+                                             TInt)))))
       (Some [IShape [INat 3]; IVar "q"; IShape [INat 2]; IShape [INat 4]])
   let test_6 _ =
     U.assert_equal
@@ -239,11 +252,14 @@ end = struct
       (Some (TFun ([], TVar "output")))
   let test_3 _ =
     U.assert_equal
-      (elt_of_typ (TArray (IShape [INat 4], TArray (IShape [INat 4], TVar "element"))))
+      (elt_of_typ (TArray (IShape [INat 4],
+                           TArray (IShape [INat 4],
+                                   TVar "element"))))
       (Some (TVar "element"))
   let test_4 _ =
     U.assert_equal
-      (elt_of_typ (TDSum (["width", SNat], TArray (IShape [IVar "width"; INat 3], TFloat))))
+      (elt_of_typ (TDSum (["width", SNat],
+                          TArray (IShape [IVar "width"; INat 3], TFloat))))
       None
   let tests =
     let open OUnit2 in
@@ -272,25 +288,31 @@ end = struct
       (Some (TArray (IShape [INat 4], TArray (IShape [INat 2], TFloat))))
   let test_5 _ =
     U.assert_equal
-      (canonicalize_typ (TArray (IShape [INat 3], (TArray (IVar "dims", TBool)))))
+      (canonicalize_typ (TArray (IShape [INat 3],
+                                 (TArray (IVar "dims", TBool)))))
       (Some (TArray (IShape [INat 3], (TArray (IVar "dims", TBool)))))
   let test_6 _ =
     U.assert_equal
-      (canonicalize_typ (TArray (IShape [],
-                                 TFun ([TArray (IShape [INat 2; INat 3], TInt)],
-                                       TArray (IShape [INat 4; INat 6], TInt)))))
+      (canonicalize_typ
+         (TArray (IShape [],
+                  TFun ([TArray (IShape [INat 2; INat 3], TInt)],
+                        TArray (IShape [INat 4; INat 6], TInt)))))
       (Some (TArray (IShape [],
-                     TFun ([TArray (IShape [INat 2], TArray (IShape [INat 3], TInt))],
-                           TArray (IShape [INat 4], TArray (IShape [INat 6], TInt))))))
+                     TFun ([TArray (IShape [INat 2],
+                                    TArray (IShape [INat 3], TInt))],
+                           TArray (IShape [INat 4],
+                                   TArray (IShape [INat 6], TInt))))))
   let test_7 _ =
     U.assert_equal
-      (canonicalize_typ (TDProd (["len", SNat],
-                                 TFun ([TArray (IShape [INat 3; INat 2], TBool)],
-                                       TArray (IShape [INat 6],
-                                               TArray (IShape [IVar "len"],
-                                                       TInt))))))
+      (canonicalize_typ
+         (TDProd (["len", SNat],
+                  TFun ([TArray (IShape [INat 3; INat 2], TBool)],
+                        TArray (IShape [INat 6],
+                                TArray (IShape [IVar "len"],
+                                        TInt))))))
       (Some (TDProd (["len", SNat],
-                     TFun ([TArray (IShape [INat 3], TArray (IShape [INat 2], TBool))],
+                     TFun ([TArray (IShape [INat 3],
+                                    TArray (IShape [INat 2], TBool))],
                            TArray (IShape [INat 6],
                                    TArray (IShape [IVar "len"],
                                            TInt))))))
@@ -316,15 +338,18 @@ end = struct
                           TArray (IShape [INat 3], TBool))))))
   let test_10 _ =
     U.assert_equal
-      (canonicalize_typ (TArray (IVar "s", TArray (IShape [], TArray (IShape [], TInt)))))
+      (canonicalize_typ
+         (TArray (IVar "s", TArray (IShape [], TArray (IShape [], TInt)))))
       (Some (TArray (IVar "s", TInt)))
   let test_11 _ =
     U.assert_equal
-      (canonicalize_typ (TArray (IShape [], TArray (IShape [], TArray (IVar "s", TInt)))))
+      (canonicalize_typ
+         (TArray (IShape [], TArray (IShape [], TArray (IVar "s", TInt)))))
       (Some (TArray (IVar "s", TInt)))
   let test_12 _ =
     U.assert_equal
-      (canonicalize_typ (TArray (IShape [], TArray (IVar "s", TArray (IShape [], TInt)))))
+      (canonicalize_typ
+         (TArray (IShape [], TArray (IVar "s", TArray (IShape [], TInt)))))
       (Some (TArray (IVar "s", TInt)))
   let tests =
     let open OUnit2 in
@@ -436,7 +461,8 @@ end = struct
       (Some [IShape []])
   let test_2 _ =
     U.assert_equal
-      (frame_contribution (TArray (IShape [], TInt)) (TArray (IShape [], TFloat)))
+      (frame_contribution
+         (TArray (IShape [], TInt)) (TArray (IShape [], TFloat)))
       None
   let test_3 _ =
     U.assert_equal
@@ -446,7 +472,8 @@ end = struct
       (Some [IShape [IVar "l"]])
   let test_4 _ =
     U.assert_equal
-      (frame_contribution (TArray (IShape [], TBool)) (TArray (IVar "d", TBool)))
+      (frame_contribution
+         (TArray (IShape [], TBool)) (TArray (IVar "d", TBool)))
       (Some [IVar "d"])
   let test_5 _ =
     U.assert_equal
@@ -463,7 +490,9 @@ end = struct
       None
   let test_7 _ =
     U.assert_equal
-      (frame_contribution (TArray (IShape [IVar "l"], TInt)) (TArray (IShape [], TInt)))
+      (frame_contribution
+         (TArray (IShape [IVar "l"], TInt))
+         (TArray (IShape [], TInt)))
       None
   let test_8 _ =
     U.assert_equal
@@ -474,20 +503,26 @@ end = struct
   let test_9 _ =
     U.assert_equal
       (frame_contribution
-         (TArray (IVar "d1", TArray (IShape [INat 4], TFloat)))
-         (TArray (IVar "d2", (TArray (IVar "d1", TArray (IShape [INat 4], TFloat))))))
+         (TArray (IVar "d1",
+                  TArray (IShape [INat 4], TFloat)))
+         (TArray (IVar "d2",
+                  (TArray (IVar "d1",
+                           TArray (IShape [INat 4], TFloat))))))
       (Some [IVar "d2"])
   let test_10 _ =
     U.assert_equal
       (frame_contribution
          (TArray (IVar "d1", TArray (IShape [INat 4], TFloat)))
-         (TArray (IVar "d1", (TArray (IVar "d2", TArray (IShape [INat 4], TFloat))))))
+         (TArray (IVar "d1",
+                  TArray (IVar "d2", TArray (IShape [INat 4], TFloat)))))
       None
   let test_11 _ =
     U.assert_equal
       (frame_contribution
-         (TArray (IShape [], TDSum (["x", SNat], TArray (IShape [IVar "x"], TFloat))))
-         (TArray (IShape [INat 3], TDSum (["y", SNat], TArray (IShape [IVar "y"], TFloat)))))
+         (TArray (IShape [],
+                  TDSum (["x", SNat], TArray (IShape [IVar "x"], TFloat))))
+         (TArray (IShape [INat 3],
+                  TDSum (["y", SNat], TArray (IShape [IVar "y"], TFloat)))))
       (Some [IShape [INat 3]])
   let tests =
     let open OUnit2 in
