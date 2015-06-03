@@ -418,6 +418,8 @@ and annot_expr_type
           return (TArray (array_shape, uniq_elt_type)) in
         (array_type, Arr (dims, elts_annot))
       | Var name as v_ -> (List.Assoc.find vars name, v_)
+      (* If the type declaration on a Pack form is not a dependent sum, there
+         is no way to type it. *)
       | Pack (new_idxs, AnnRExpr (a, body), TDSum (ivars, t)) ->
         let AnnRExpr (body_typ, _) as body_annot =
           (annot_expr_type idxs typs vars (AnnRExpr (a, body)))
@@ -434,6 +436,8 @@ and annot_expr_type
         then (Some (TDSum (ivars, t)),
               Pack (new_idxs, body_annot, TDSum (ivars, t)))
         else (None, Pack (new_idxs, body_annot, TDSum (ivars, t)))
+      | Pack (new_idxs, body, bad_type) ->
+        (None, Pack (new_idxs, annot_expr_type idxs typs vars body, bad_type))
       | Unpack (ivars, v, dsum, body) ->
         let (AnnRExpr (dsum_type, _)) as dsum_annot =
           annot_expr_type idxs typs vars dsum in
