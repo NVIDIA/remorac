@@ -106,16 +106,6 @@ let typ_of_t_expr = function
 let typ_of_t_elt = function
   | AnnRElt (t, _) -> t
 
-(* Transform a list of options into an option of a list. If the original list
-   contains any `None`s, collapse the whole list to a None.  *)
-let rec option_list_xform (options: 'a option list) : 'a list option =
-  match options with
-  | [] -> Some []
-  | None :: _ -> None
-  | (Some a) :: more ->
-    option_list_xform more >>= fun more_ ->
-    a :: more_ |> return
-
 (* Construct a shape from a list of natural numbers *)
 let shape_of_nat_list nats = IShape (List.map ~f:(fun x -> INat x) nats)
 
@@ -157,7 +147,7 @@ let rec canonicalize_typ = function
     canonicalize_typ body >>= fun new_body ->
     TAll (bindings, new_body) |> return
   | TFun (args, ret) ->
-    option_list_xform (List.map ~f:canonicalize_typ args) >>= fun args_ ->
+    Option.all (List.map ~f:canonicalize_typ args) >>= fun args_ ->
     canonicalize_typ ret >>= fun ret_ ->
     TFun (args_, ret_) |> return
   | TArray (shape, (TArray (IShape [], elt_typ))) ->
@@ -336,10 +326,10 @@ and annot_expr_type
           (* Fail if we don't have a well-typed function. *)
           | _ -> None) >>= fun (arg_expected_types, ret_cell_type) ->
           (* Fail if we don't have well-typed arguments. *)
-          option_list_xform
+          Option.all
             (List.map ~f:typ_of_t_expr args_annot) >>= fun arg_actual_types ->
           (* Identify each argument's contribution to the frame shape. *)
-          option_list_xform
+          Option.all
             (List.map2_exn ~f:frame_contribution
                arg_expected_types arg_actual_types) >>= fun arg_frame_shapes ->
           (* Find the largest under prefix ordering (the principal frame), if
@@ -408,7 +398,7 @@ and annot_expr_type
                            && (List.for_all ~f:((<=) 0) dims))
              (shape_of_nat_list dims)) >>= fun array_shape ->
           (* Fail if any element is ill-typed. *)
-          option_list_xform
+          Option.all
             (List.map ~f:typ_of_t_elt
                elts_annot) >>= fun (elt_types: typ list) ->
           (* Fail if the elements don't all have the same type. *)
