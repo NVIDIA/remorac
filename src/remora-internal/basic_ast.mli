@@ -77,24 +77,30 @@ type 'annot ann_expr =
 and 'annot ann_elt =
   AnnRElt of 'annot * ('annot ann_elt, 'annot ann_expr) elt_form
 with sexp
+type 'annot ann_defn = AnnRDefn of var * typ * 'annot ann_expr with sexp
+type 'annot ann_prog =
+| AnnRProg of 'annot * 'annot ann_defn list * 'annot ann_expr
+with sexp
 
 type t_expr = typ ann_expr with sexp
-
 type pt_expr = typ option ann_expr with sexp
 
 type t_elt = typ ann_elt with sexp
+type pt_elt = typ option ann_elt with sexp
+
+type t_defn = typ ann_defn with sexp
+type pt_defn = typ option ann_defn with sexp
+
+type t_prog = typ ann_prog with sexp
+type pt_prog = typ option ann_prog with sexp
 
 type rem_expr = RExpr of (rem_expr, rem_elt) expr_form
 and rem_elt = RElt of (rem_elt, rem_expr) elt_form
 with sexp
 
 type rem_defn = RDefn of var * typ * rem_expr with sexp
-type 'annot ann_defn = AnnRDefn of var * typ * 'annot ann_expr with sexp
 
 type rem_prog = RProg of rem_defn list * rem_expr with sexp
-type 'annot ann_prog =
-| AnnRProg of 'annot * 'annot ann_defn list * 'annot ann_expr
-with sexp
 
 val annot_expr_init : init:'a -> rem_expr -> 'a ann_expr
 val annot_elt_init : init:'a -> rem_elt -> 'a ann_elt

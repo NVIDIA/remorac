@@ -93,37 +93,39 @@ and ('self_t, 'expr_t) elt_form =
 | Expr of 'expr_t
 with sexp
 
-(* Annotated Remora expression (parameterized over annotation type) *)
-type 'annot ann_expr = 
-| AnnRExpr of 'annot * (('annot ann_expr), ('annot ann_elt)) expr_form
-(* Annotated Remora array element *)
-and  'annot ann_elt = 
-| AnnRElt of 'annot * (('annot ann_elt), ('annot ann_expr)) elt_form
-with sexp
-(* Fully type-annotated Remora expression *)
-type t_expr = typ ann_expr with sexp
-(* Partially type-annotated Remora expression *)
-type pt_expr = (typ option) ann_expr with sexp
-
-(* Type-annotated Remora array element *)
-type t_elt = typ ann_elt with sexp
-
 (* Remora expression with no extra annotation field *)
 type rem_expr =
 | RExpr of (rem_expr, rem_elt) expr_form
 and  rem_elt  =
 | RElt  of (rem_elt, rem_expr) elt_form
 with sexp
-
-(* Top-level definition *)
 type rem_defn = RDefn of var * typ * rem_expr with sexp
-type 'annot ann_defn = AnnRDefn of var * typ * 'annot ann_expr with sexp
-
-(* Whole program/file *)
 type rem_prog = RProg of rem_defn list * rem_expr with sexp
+
+(* Annotated Remora expression (parameterized over annotation type) *)
+type 'annot ann_expr =
+| AnnRExpr of 'annot * (('annot ann_expr), ('annot ann_elt)) expr_form
+and  'annot ann_elt =
+| AnnRElt of 'annot * (('annot ann_elt), ('annot ann_expr)) elt_form
+with sexp
+type 'annot ann_defn = AnnRDefn of var * typ * 'annot ann_expr with sexp
 type 'annot ann_prog =
 | AnnRProg of 'annot * 'annot ann_defn list * 'annot ann_expr
 with sexp
+
+
+(* Fully type-annotated Remora terms *)
+type t_expr = typ ann_expr with sexp
+type t_elt = typ ann_elt with sexp
+type t_defn = typ ann_defn with sexp
+type t_prog = typ ann_prog with sexp
+(* Partially type-annotated Remora terms *)
+type pt_expr = typ option ann_expr with sexp
+type pt_elt = typ option ann_elt with sexp
+type pt_defn = typ option ann_defn with sexp
+type pt_prog = typ option ann_prog with sexp
+
+
 
 (* For example,
     AnnRExpr ((TArray (IShape [2], TInt)),

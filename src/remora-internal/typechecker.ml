@@ -307,9 +307,8 @@ and annot_expr_type
     (idxs: srt env)
     (typs: kind env)
     (vars: typ env)
-    (expr: 'a ann_expr) : (typ option) ann_expr =
-  let (new_type, new_node): (typ option * (typ option ann_expr,
-                                           typ option ann_elt) expr_form) =
+    (expr: 'a ann_expr) : pt_expr =
+  let (new_type, new_node): (typ option * (pt_expr, pt_elt) expr_form) =
     match expr with AnnRExpr (_, e) ->
       match e with
       | App (fn, args) ->
@@ -455,11 +454,11 @@ and annot_expr_type
    individual definition, we assume we're getting these bindings from above
    rather than making the definition itself recursive. That is, the defined
    term is not bound within the definition's body by default. *)
-let annot_defn_type
+let annot_defn_type (type a)
     (idxs: srt env)
     (typs: kind env)
     (vars: typ env)
-    (defn: 'a ann_defn) : typ option ann_defn =
+    (defn: a ann_defn) : typ option ann_defn =
   let AnnRDefn (name, typ_specified, value) = defn in
   AnnRDefn (name, typ_specified, annot_expr_type idxs typs vars value)
 
@@ -467,11 +466,11 @@ let annot_prog_type
     (idxs: srt env)
     (typs: kind env)
     (vars: typ env)
-    (prog: 'a ann_prog) : typ option ann_prog =
+    (prog: 'a ann_prog) : pt_prog =
   let AnnRProg (annot, defns, expr) = prog in
   let defn_type_env_entries =
     List.map ~f:(fun (AnnRDefn (n, t, _)) -> (n, t)) defns in
-  let annot_defns : 'a ann_defn list =
+  let annot_defns =
     List.map
       ~f:(fun (AnnRDefn (n, t, e)) ->
         AnnRDefn (n, t,
@@ -496,7 +495,7 @@ let annot_prog_type
             Option.is_none t_checked)
           annot_defns)
     then None
-    else let (AnnRExpr (annot, _)) = annot_expr in annot in
+    else let (AnnRExpr (ann, _)) = annot_expr in ann in
   AnnRProg (top_level_annot, annot_defns, annot_expr)
 
 (* Convert a "maybe well-typed" AST into either Some typ ann_<tree> or None.
