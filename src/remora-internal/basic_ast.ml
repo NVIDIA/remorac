@@ -129,7 +129,7 @@ with sexp
 *)
 
 (* Set up a designated "blank" annotation at every AST node *)
-let rec annot_expr_init ~(init:'t) (expr: rem_expr) : 't ann_expr =
+let rec annot_expr_init ~(init: 'a) (expr: rem_expr) : 'a ann_expr =
   match expr with RExpr node ->
     let new_node = match node with
        | App (fn, args)
@@ -153,7 +153,7 @@ let rec annot_expr_init ~(init:'t) (expr: rem_expr) : 't ann_expr =
                     (annot_expr_init ~init:init contents),
                     (annot_expr_init ~init:init body))
     in AnnRExpr (init, new_node)
-and annot_elt_init ~(init:'t) (elt: rem_elt) : 't ann_elt =
+and annot_elt_init ~(init: 'a) (elt: rem_elt) : 'a ann_elt =
   match elt with RElt node ->
     let new_node = match node with
       | Lam (bindings, body) -> Lam (bindings, annot_expr_init ~init:init body)
@@ -163,7 +163,7 @@ and annot_elt_init ~(init:'t) (elt: rem_elt) : 't ann_elt =
 ;;
 
 (* Extract the non-annotated version of an AST node *)
-let rec annot_expr_drop (expr: 't ann_expr) : rem_expr =
+let rec annot_expr_drop (expr: 'a ann_expr) : rem_expr =
   match expr with AnnRExpr (_, node) ->
     let new_node = match node with
       | App (fn, args) -> App (annot_expr_drop fn,
@@ -180,7 +180,7 @@ let rec annot_expr_drop (expr: 't ann_expr) : rem_expr =
                    annot_expr_drop contents,
                    annot_expr_drop body)
     in RExpr new_node
-and annot_elt_drop (elt: 't ann_elt) : rem_elt =
+and annot_elt_drop (elt: 'a ann_elt) : rem_elt =
   match elt with AnnRElt (_, node) ->
     let new_node = match node with
       | Lam (bindings, body) -> Lam (bindings, annot_expr_drop body)
