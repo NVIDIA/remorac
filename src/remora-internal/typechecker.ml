@@ -498,3 +498,60 @@ let annot_prog_type
     then None
     else let (AnnRExpr (annot, _)) = annot_expr in annot in
   AnnRProg (top_level_annot, annot_defns, annot_expr)
+
+(* Convert a "maybe well-typed" AST into either Some typ ann_<tree> or None.
+   typ option ann_expr/elt -> typ ann_expr/elt option *)
+let rec well_typed_of_expr (expr: typ option ann_expr) : typ ann_expr option =
+  let AnnRExpr (annot, body) = expr in
+  annot >>= fun t ->
+  (* If the expr isn't well-typed, just return None *)
+  (match body with
+  | App (fn, args) ->
+    well_typed_of_expr fn >>= fun f ->
+    List.map ~f:well_typed_of_expr args |> Option.all >>= fun a ->
+    App (f, a) |> return
+  | TApp (fn, t_args) ->
+    well_typed_of_expr fn >>= fun f -> TApp (f, t_args) |> return
+  | TLam (t_vars, body) ->
+    well_typed_of_expr body >>= fun b -> TLam (t_vars, b) |> return
+  | IApp (fn, i_args) ->
+    well_typed_of_expr fn >>= fun f -> IApp (f, i_args) |> return
+  | ILam (i_vars, body) ->
+    well_typed_of_expr body >>= fun b -> ILam (i_vars, b) |> return
+  | Arr (dims, elts) ->
+    List.map ~f:well_typed_of_elt elts |> Option.all >>= fun l ->
+    Arr (dims, l) |> return
+  | Var _ as v -> return v
+  | Pack (idxs, value, t) ->
+    well_typed_of_expr value >>= fun v -> Pack (idxs, v, t) |> return
+  | Unpack (i_vars, v, dsum, body) ->
+    well_typed_of_expr dsum >>= fun d ->
+    well_typed_of_expr body >>= fun b ->
+    Unpack (i_vars, v, d, b) |> return
+  ) >>= fun e -> AnnRExpr (t, e) |> return
+and well_typed_of_elt (elt: typ option ann_elt) : typ ann_elt option =
+  let AnnRElt (annot, body) = elt in
+  annot >>= fun t ->
+  (match body with
+  | Float _ as f -> return f
+  | Int _ as i -> return i
+  | Bool _ as b -> return b
+  | Lam (args, body) ->
+    well_typed_of_expr body >>= fun b ->
+    Lam (args, b) |> return
+  | Expr expr ->
+    well_typed_of_expr expr >>= fun e -> Expr e |> return
+  ) >>= fun l -> AnnRElt (t, l) |> return
+;;
+
+let well_typed_of_defn (defn: typ option ann_defn) : typ ann_defn option =
+  let AnnRDefn (name, typ, value) = defn in
+  well_typed_of_expr value >>= fun v ->
+  AnnRDefn (name, typ, v) |> return
+
+let well_typed_of_prog (prog: typ option ann_prog) : typ ann_prog option =
+  let AnnRProg (annot, defns, expr) = prog in
+  annot >>= fun a ->
+  List.map ~f:well_typed_of_defn defns |> Option.all >>= fun ds ->
+  well_typed_of_expr expr >>= fun e ->
+  AnnRProg (a, ds, e) |> return
