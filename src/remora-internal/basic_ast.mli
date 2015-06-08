@@ -88,7 +88,19 @@ type rem_expr = RExpr of (rem_expr, rem_elt) expr_form
 and rem_elt = RElt of (rem_elt, rem_expr) elt_form
 with sexp
 
-val annot_expr_init : init:'t -> rem_expr -> 't ann_expr
-val annot_elt_init : init:'t -> rem_elt -> 't ann_elt
-val annot_expr_drop : 't ann_expr -> rem_expr
-val annot_elt_drop : 't ann_elt -> rem_elt
+type rem_defn = RDefn of var * typ * rem_expr with sexp
+type 'annot ann_defn = AnnRDefn of var * typ * 'annot ann_expr with sexp
+
+type rem_prog = RProg of rem_defn list * rem_expr with sexp
+type 'annot ann_prog =
+| AnnRProg of 'annot * 'annot ann_defn list * 'annot ann_expr
+with sexp
+
+val annot_expr_init : init:'a -> rem_expr -> 'a ann_expr
+val annot_elt_init : init:'a -> rem_elt -> 'a ann_elt
+val annot_defn_init : init:'a -> rem_defn -> 'a ann_defn
+val annot_prog_init : init:'a -> rem_prog -> 'a ann_prog
+val annot_expr_drop : 'a ann_expr -> rem_expr
+val annot_elt_drop : 'a ann_elt -> rem_elt
+val annot_defn_drop : 'a ann_defn -> rem_defn
+val annot_prog_drop : 'a ann_prog -> rem_prog

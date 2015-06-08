@@ -207,6 +207,42 @@ let fork_compose =
                 "s-jo", SShape],
                type_lam))
 
+let define_compose =
+  RDefn ("compose",
+         (TDProd
+            (["s1", SShape; "s2", SShape; "s3", SShape],
+             TAll
+               (["alpha"; "beta"; "gamma"],
+                TArray (IShape [],
+                        TFun ([TArray
+                                  (IShape [],
+                                   TFun ([TArray (IVar "s1", TVar "alpha")],
+                                         TArray (IVar "s2", TVar "beta")));
+                               TArray
+                                 (IShape [],
+                                  TFun ([TArray (IVar "s2", TVar "beta")],
+                                        TArray (IVar "s3", TVar "gamma")))],
+                              TArray
+                                (IShape [],
+                                 TFun ([TArray (IVar "s1", TVar "alpha")],
+                                       TArray (IVar "s3", TVar "gamma")))))))),
+         remora_compose)
+
+let use_compose =
+  RExpr (App (RExpr
+                (App (RExpr
+                        (TApp (RExpr
+                                 (IApp (RExpr (Var "compose"),
+                                        [IShape [];
+                                         IShape [];
+                                         IShape []])),
+                               [TInt; TInt; TInt])),
+                      [scalar_of_elt unary_lambda;
+                       scalar_of_elt unary_lambda])),
+              [scalar_of_elt_form (Int 0)]))
+
+let prog_compose =
+  RProg ([define_compose], use_compose)
 
 (* For any rem_expr, adding blank annotations and then dropping annotations
    should lead back to the same rem_expr *)
@@ -218,6 +254,10 @@ end = struct
     U.assert_equal x (x |> annot_expr_init ~init:() |> annot_expr_drop)
   let test_elt_init_drop (l: rem_elt) (_: U.test_ctxt) =
     U.assert_equal l (l |> annot_elt_init ~init:() |> annot_elt_drop)
+  let test_defn_init_drop (d: rem_defn) (_: U.test_ctxt) =
+    U.assert_equal d (d |> annot_defn_init ~init:() |> annot_defn_drop)
+  let test_prog_init_drop (d: rem_prog) (_: U.test_ctxt) =
+    U.assert_equal d (d |> annot_prog_init ~init:() |> annot_prog_drop)
   (* let flat_arr_2_3 = test_expr_init_drop flat_arr_2_3 *)
   (* let flat_arr_0_4 = test_expr_init_drop flat_arr_0_4 *)
   (* let arr_2 = test_expr_init_drop arr_2 *)
@@ -258,5 +298,7 @@ end = struct
        "Intro dependent sum">:: test_expr_init_drop dep_sum_create;
        "Elim dependent sum">:: test_expr_init_drop dep_sum_project;
        "Straight line composition">:: test_expr_init_drop remora_compose;
-       "Fork composition">:: test_expr_init_drop fork_compose]
+       "Fork composition">:: test_expr_init_drop fork_compose;
+       "Define compose in program">:: test_defn_init_drop define_compose;
+       "Use compose in program">:: test_prog_init_drop prog_compose]
 end

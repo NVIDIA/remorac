@@ -56,6 +56,10 @@ val annot_elt_type : srt env -> kind env -> typ env -> 'a ann_elt
   -> typ option ann_elt
 val annot_expr_type : srt env -> kind env -> typ env -> 'a ann_expr
   -> typ option ann_expr
+val annot_defn_type : srt env -> kind env -> typ env -> 'a ann_defn
+  -> typ option ann_defn
+val annot_prog_type : srt env -> kind env -> typ env -> 'a ann_prog
+  -> typ option ann_prog
 
 (*
 val type_of_elt :

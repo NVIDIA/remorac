@@ -450,4 +450,51 @@ and annot_expr_type
   in AnnRExpr (new_type, new_node)
 ;;
 
-(* Convert a "maybe well-typed" AST into either Some typ ann_<tree> or None. *)
+(* For checking the list of definitions in a program, we'll make them all
+   bound at top-level. Any definition can refer to any other. To check an
+   individual definition, we assume we're getting these bindings from above
+   rather than making the definition itself recursive. That is, the defined
+   term is not bound within the definition's body by default. *)
+let annot_defn_type
+    (idxs: srt env)
+    (typs: kind env)
+    (vars: typ env)
+    (defn: 'a ann_defn) : typ option ann_defn =
+  let AnnRDefn (name, typ_specified, value) = defn in
+  AnnRDefn (name, typ_specified, annot_expr_type idxs typs vars value)
+
+let annot_prog_type
+    (idxs: srt env)
+    (typs: kind env)
+    (vars: typ env)
+    (prog: 'a ann_prog) : typ option ann_prog =
+  let AnnRProg (annot, defns, expr) = prog in
+  let defn_type_env_entries =
+    List.map ~f:(fun (AnnRDefn (n, t, _)) -> (n, t)) defns in
+  let annot_defns : 'a ann_defn list =
+    List.map
+      ~f:(fun (AnnRDefn (n, t, e)) ->
+        AnnRDefn (n, t,
+                  annot_expr_type idxs typs
+                    (env_update defn_type_env_entries vars) e))
+      defns in
+  (* Gather together all of the well-formed definitions into the type environment *)
+  let well_formed_defn_types =
+    List.filter_map
+      ~f:(fun (AnnRDefn (n, t_specified, AnnRExpr (t_checked, body))) ->
+        t_checked >>= fun _ ->
+        return (n, t_specified))
+      annot_defns in
+  let annot_expr =
+    annot_expr_type
+      idxs typs (env_update well_formed_defn_types vars) expr in
+  (* If any defintions were ill-formed, give None as the type annotation for the
+     whole program. *)
+  let top_level_annot : typ option =
+    if (List.exists
+          ~f:(fun (AnnRDefn (_, _, AnnRExpr (t_checked, _))) ->
+            Option.is_none t_checked)
+          annot_defns)
+    then None
+    else let (AnnRExpr (annot, _)) = annot_expr in annot in
+  AnnRProg (top_level_annot, annot_defns, annot_expr)

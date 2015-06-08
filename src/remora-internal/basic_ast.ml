@@ -115,6 +115,16 @@ and  rem_elt  =
 | RElt  of (rem_elt, rem_expr) elt_form
 with sexp
 
+(* Top-level definition *)
+type rem_defn = RDefn of var * typ * rem_expr with sexp
+type 'annot ann_defn = AnnRDefn of var * typ * 'annot ann_expr with sexp
+
+(* Whole program/file *)
+type rem_prog = RProg of rem_defn list * rem_expr with sexp
+type 'annot ann_prog =
+| AnnRProg of 'annot * 'annot ann_defn list * 'annot ann_expr
+with sexp
+
 (* For example,
     AnnRExpr ((TArray (IShape [2], TInt)),
               (Arr ([2], [AnnRElt (TInt, Int 3);
@@ -162,6 +172,18 @@ and annot_elt_init ~(init: 'a) (elt: rem_elt) : 'a ann_elt =
     in AnnRElt (init, new_node)
 ;;
 
+(* Set up "blank" annotations in a definition *)
+let annot_defn_init ~(init: 'a) (defn: rem_defn) : 'a ann_defn =
+  let RDefn (n, t, v) = defn
+  in AnnRDefn(n, t, annot_expr_init ~init:init v)
+
+(* Set up "blank" annotations in a program *)
+let annot_prog_init ~(init: 'a) (prog: rem_prog) : 'a ann_prog =
+  let RProg (defns, expr) = prog in
+  AnnRProg (init,
+            List.map ~f:(annot_defn_init ~init:init) defns,
+            annot_expr_init ~init:init expr)
+
 (* Extract the non-annotated version of an AST node *)
 let rec annot_expr_drop (expr: 'a ann_expr) : rem_expr =
   match expr with AnnRExpr (_, node) ->
@@ -188,3 +210,14 @@ and annot_elt_drop (elt: 'a ann_elt) : rem_elt =
       | (Float _ | Int _ | Bool _) as other -> other
     in RElt new_node
 ;;
+
+(* Extract non-annotated version of a definition *)
+let annot_defn_drop (defn: 'a ann_defn) : rem_defn =
+  let AnnRDefn (n, t, v) = defn in
+  RDefn (n, t, annot_expr_drop v)
+
+(* Extract non-annotated version of a program *)
+let annot_prog_drop (prog: 'a ann_prog) : rem_prog =
+  let AnnRProg (_, defns, expr) = prog in
+  RProg (List.map ~f:annot_defn_drop defns,
+         annot_expr_drop expr)
