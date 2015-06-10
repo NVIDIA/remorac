@@ -110,3 +110,8 @@ val annot_expr_drop : 'a ann_expr -> rem_expr
 val annot_elt_drop : 'a ann_elt -> rem_elt
 val annot_defn_drop : 'a ann_defn -> rem_defn
 val annot_prog_drop : 'a ann_prog -> rem_prog
+
+val annot_of_expr : 'a ann_expr -> 'a
+val annot_of_elt : 'a ann_elt -> 'a
+val annot_of_defn : 'a ann_defn -> 'a
+val annot_of_prog : 'a ann_prog -> 'a

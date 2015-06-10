@@ -43,9 +43,6 @@ val uniq_typ : typ list -> typ option
 val shape_of_typ : typ -> idx list option
 val elt_of_typ : typ -> typ option
 
-val typ_of_t_expr : typ option ann_expr -> typ option
-val typ_of_t_elt : typ option ann_elt -> typ option
-
 val canonicalize_typ : typ -> typ option
 
 val typ_equal : typ -> typ -> bool

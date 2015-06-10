@@ -552,7 +552,7 @@ end = struct
                      (e: rem_elt) : typ option =
     e |> (annot_elt_init ~init:())
       |> (annot_elt_type idxs typs vars)
-      |> typ_of_t_elt
+      |> annot_of_elt
   let assert_elt_type (e: rem_elt) (check_typ: typ) =
     match (typ_of_rem_elt e) with
     | Some elt_typ -> assert_typ_equal elt_typ check_typ
@@ -587,7 +587,7 @@ end = struct
                       (e: rem_expr) : typ option =
     e |> (annot_expr_init ~init:())
       |> (annot_expr_type idxs typs vars)
-      |> typ_of_t_expr
+      |> annot_of_expr
   let assert_expr_type (e: rem_expr) (check_typ: typ) =
     match (typ_of_rem_expr e) with
     | Some expr_typ -> assert_typ_equal expr_typ check_typ

@@ -100,12 +100,6 @@ let rec uniq_typ (typs: typ list) : (typ option) =
     uniq_typ ts >>= fun (rest: typ) ->
     if (t = rest) then return t else None
 
-(* Read the type annotation from an AST node *)
-let typ_of_t_expr = function
-  | AnnRExpr (t, _) -> t
-let typ_of_t_elt = function
-  | AnnRElt (t, _) -> t
-
 (* Construct a shape from a list of natural numbers *)
 let shape_of_nat_list nats = IShape (List.map ~f:(fun x -> INat x) nats)
 
@@ -316,17 +310,17 @@ and annot_expr_type
         and args_annot = List.map ~f:(annot_expr_type idxs typs vars) args in
         let result_type =
           (* Fail if the function's element type is not well-formed. *)
-          (typ_of_t_expr fn_annot) >>= shape_of_typ
+          (annot_of_expr fn_annot) >>= shape_of_typ
           >>= fun (fun_shape : idx list) ->
           (* Fail if the function's shape is not well-formed. *)
-          (match (typ_of_t_expr fn_annot) >>= elt_of_typ with
+          (match (annot_of_expr fn_annot) >>= elt_of_typ with
           | Some (TFun (cell_typs, ret_typ))
             -> Some (cell_typs, ret_typ)
           (* Fail if we don't have a well-typed function. *)
           | _ -> None) >>= fun (arg_expected_types, ret_cell_type) ->
           (* Fail if we don't have well-typed arguments. *)
           Option.all
-            (List.map ~f:typ_of_t_expr args_annot) >>= fun arg_actual_types ->
+            (List.map ~f:annot_of_expr args_annot) >>= fun arg_actual_types ->
           (* Identify each argument's contribution to the frame shape. *)
           Option.all
             (List.map2_exn ~f:frame_contribution
@@ -342,7 +336,7 @@ and annot_expr_type
       | TApp (fn, typ_args) ->
         let fn_annot = annot_expr_type idxs typs vars fn in
         let result_type =
-          match typ_of_t_expr fn_annot with
+          match annot_of_expr fn_annot with
           | Some (TAll (tvars, tbody)) ->
             (* Fail if the type argument list is a different length than the
                type specifies. *)
@@ -361,13 +355,13 @@ and annot_expr_type
         let body_annot =
           annot_expr_type idxs (env_update env_extend typs) vars body in
         let tlam_type =
-          typ_of_t_expr body_annot >>= fun body_type ->
+          annot_of_expr body_annot >>= fun body_type ->
           TAll (bindings, body_type) |> return
         in (tlam_type, TLam (bindings, body_annot))
       | IApp (fn, idx_args) ->
         let fn_annot = annot_expr_type idxs typs vars fn in
         let result_type =
-          match typ_of_t_expr fn_annot with
+          match annot_of_expr fn_annot with
           | Some (TDProd (ivar_bindings, tbody)) ->
             let ivars = List.map ~f:fst ivar_bindings
             and sorts = List.map ~f:snd ivar_bindings in
@@ -384,7 +378,7 @@ and annot_expr_type
         let body_annot =
           annot_expr_type (env_update bindings idxs) typs vars body in
         let ilam_type =
-          typ_of_t_expr body_annot >>= fun body_type ->
+          annot_of_expr body_annot >>= fun body_type ->
           TDProd (bindings, body_type) |> return
         in (ilam_type, ILam (bindings, body_annot))
       | Arr (dims, data) ->
@@ -398,7 +392,7 @@ and annot_expr_type
              (shape_of_nat_list dims)) >>= fun array_shape ->
           (* Fail if any element is ill-typed. *)
           Option.all
-            (List.map ~f:typ_of_t_elt
+            (List.map ~f:annot_of_elt
                elts_annot) >>= fun (elt_types: typ list) ->
           (* Fail if the elements don't all have the same type. *)
           uniq_typ elt_types >>=  fun (uniq_elt_type: typ) ->
@@ -441,7 +435,7 @@ and annot_expr_type
             (env_update contents_binding vars)
             body in
         let result_type =
-          typ_of_t_expr body_annot >>= fun body_type ->
+          annot_of_expr body_annot >>= fun body_type ->
           Option.some_if
             (kind_of_typ idxs typs body_type = Some ())
             body_type in
