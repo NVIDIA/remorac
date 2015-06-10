@@ -26,14 +26,43 @@
 (* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.       *)
 (******************************************************************************)
 
-module AST = Test_basic_ast.UnitTests;;
-module Typecheck = Test_typechecker.UnitTests;;
-module Frame_annotate = Test_frame_notes.UnitTests;;
-open OUnit2
+open Core.Std
+open Basic_ast
+open Annotation
+open Typechecker
 
-let () =
-  run_test_tt_main AST.suite_init_drop;
-  run_test_tt_main Typecheck.tests;
-  run_test_tt_main Frame_annotate.tests;
-;;
+type app_frame =
+| AppFrame of idx list
+| NoApp
 
+(* Annotate an AST with the frame shape of each application form. *)
+let rec annot_expr_app_frame ((AnnRExpr (node_type, expr)): typ ann_expr) : app_frame ann_expr =
+  match expr with
+  (* TODO: broaden this case to match nested arrays of functions *)
+  | App ((AnnRExpr (fn_position_typ, _) as fn_expr),
+         args)->
+    let fn_typ = elt_of_typ fn_position_typ in
+    let ret_type =
+      (match fn_typ with
+      | Some (TFun (_, ret)) -> ret
+      (* The element type of the array in function position is not a function
+         type (should not happen in well-typed AST). *)
+      | _ -> assert false) in
+    (match frame_contribution ret_type node_type with
+    | Some idxs -> AnnRExpr (AppFrame idxs,
+                             App (annot_expr_app_frame fn_expr,
+                                  List.map ~f:annot_expr_app_frame args))
+    (* We have an app form whose type is not a frame around its function's
+       return type (should not happen in well-typed AST). *)
+    | None -> assert false)
+  | _ -> AnnRExpr (NoApp, map_expr_form ~f_expr:annot_expr_app_frame ~f_elt:annot_elt_app_frame expr)
+and annot_elt_app_frame ((AnnRElt (_, elt)): typ ann_elt) : app_frame ann_elt =
+  AnnRElt (NoApp, map_elt_form ~f_expr:annot_expr_app_frame elt)
+let annot_defn_app_frame ((AnnRDefn (n, t, e)): typ ann_defn) : app_frame ann_defn =
+  AnnRDefn (n, t, annot_expr_app_frame e)
+let annot_prog_app_frame ((AnnRProg (_, defns, expr)): typ ann_prog) : app_frame ann_prog =
+  let new_expr = annot_expr_app_frame expr in
+  let new_annot = annot_of_expr new_expr in
+  AnnRProg (new_annot,
+            List.map ~f:annot_defn_app_frame defns,
+            new_expr)

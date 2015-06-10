@@ -72,6 +72,15 @@ and ('self_t, 'expr_t) elt_form =
   | Expr of 'expr_t
 with sexp
 
+val map_expr_form :
+  f_expr:('old_self_t -> 'new_self_t)
+   -> f_elt:('old_elt_t -> 'new_elt_t)
+   -> ('old_self_t, 'old_elt_t) expr_form
+   -> ('new_self_t, 'new_elt_t) expr_form
+val map_elt_form :
+  f_expr:('old_expr_t -> 'new_expr_t) ->
+  ('old_self_t, 'old_expr_t) elt_form -> ('new_self_t, 'new_expr_t) elt_form
+
 type 'annot ann_expr =
   AnnRExpr of 'annot * ('annot ann_expr, 'annot ann_elt) expr_form
 and 'annot ann_elt =

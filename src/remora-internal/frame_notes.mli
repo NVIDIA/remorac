@@ -26,14 +26,13 @@
 (* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.       *)
 (******************************************************************************)
 
-module AST = Test_basic_ast.UnitTests;;
-module Typecheck = Test_typechecker.UnitTests;;
-module Frame_annotate = Test_frame_notes.UnitTests;;
-open OUnit2
+open Basic_ast
 
-let () =
-  run_test_tt_main AST.suite_init_drop;
-  run_test_tt_main Typecheck.tests;
-  run_test_tt_main Frame_annotate.tests;
-;;
+type app_frame =
+| AppFrame of idx list
+| NoApp
 
+val annot_expr_app_frame : typ ann_expr -> app_frame ann_expr
+val annot_elt_app_frame : typ ann_elt -> app_frame ann_elt
+val annot_defn_app_frame : typ ann_defn -> app_frame ann_defn
+val annot_prog_app_frame : typ ann_prog -> app_frame ann_prog

@@ -93,7 +93,36 @@ and ('self_t, 'expr_t) elt_form =
 | Expr of 'expr_t
 with sexp
 
-(* Remora expression with no extra annotation field *)
+let map_expr_form
+    ~(f_expr: 'old_self_t -> 'new_self_t)
+    ~(f_elt: 'old_elt_t -> 'new_elt_t)
+    (e: ('old_self_t, 'old_elt_t) expr_form)
+    : ('new_self_t, 'new_elt_t) expr_form =
+  match e with
+  | App (fn, args) -> App (f_expr fn,
+                           List.map ~f:f_expr args)
+  | TApp (fn, t_args) -> TApp (f_expr fn, t_args)
+  | TLam (t_vars, body) -> TLam (t_vars, f_expr body)
+  | IApp (fn, i_args) -> IApp (f_expr fn, i_args)
+  | ILam (i_vars, body) -> ILam (i_vars, f_expr body)
+  | Arr (dims, elts) -> Arr (dims, List.map ~f:f_elt elts)
+  | Var _ as v -> v
+  | Pack (idxs, v, t) -> Pack (idxs, f_expr v, t)
+  | Unpack (ivars, v, dsum, body) -> Unpack (ivars, v, f_expr dsum, f_expr body)
+
+let map_elt_form
+    ~(f_expr: 'old_expr_t -> 'new_expr_t)
+    (* ~(f_elt: 'old_self_t -> 'new_self_t) *)
+    (l: ('old_self_t, 'old_expr_t) elt_form)
+    : ('new_self_t, 'new_expr_t) elt_form =
+  match l with
+  | Float _ as f -> f
+  | Int _ as i -> i
+  | Bool _ as b -> b
+  | Lam (vars, body) -> Lam (vars, f_expr body)
+  | Expr e -> Expr (f_expr e)
+
+(* Remora terms with no extra annotation field *)
 type rem_expr =
 | RExpr of (rem_expr, rem_elt) expr_form
 and  rem_elt  =
