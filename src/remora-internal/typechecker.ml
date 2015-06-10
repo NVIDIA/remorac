@@ -156,9 +156,13 @@ let rec canonicalize_typ = function
   | TArray (IVar v, elt_typ) ->
     canonicalize_typ elt_typ >>= fun elt_typ_ ->
     TArray (IVar v, elt_typ_) |> return
-  | TArray (IShape [dim], elt_typ) ->
+  | TArray ((IShape [dim]) as outer_dim, elt_typ) as reuse ->
     canonicalize_typ elt_typ >>= fun elt_canon ->
-    TArray (IShape [dim], elt_canon) |> return
+    (* If this type is already in canonical form, we can avoid reconstructing
+       its whole subtree by reusing it. *)
+    if (elt_typ = elt_canon)
+    then reuse |> return
+    else TArray (outer_dim, elt_canon) |> return
   | TArray (IShape (dim :: dims), elt_typ) ->
     canonicalize_typ (TArray (IShape dims, elt_typ)) >>= fun sub_array ->
     TArray (IShape [dim], sub_array) |> return
