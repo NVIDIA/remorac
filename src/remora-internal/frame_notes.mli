@@ -30,7 +30,7 @@ open Basic_ast
 
 type app_frame =
 | AppFrame of idx list
-| NoApp
+| NotApp
 
 val annot_expr_app_frame : typ ann_expr -> app_frame ann_expr
 val annot_elt_app_frame : typ ann_elt -> app_frame ann_elt

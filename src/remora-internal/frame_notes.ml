@@ -33,10 +33,11 @@ open Typechecker
 
 type app_frame =
 | AppFrame of idx list
-| NoApp
+| NotApp
 
 (* Annotate an AST with the frame shape of each application form. *)
-let rec annot_expr_app_frame ((AnnRExpr (node_type, expr)): typ ann_expr) : app_frame ann_expr =
+let rec annot_expr_app_frame
+    ((AnnRExpr (node_type, expr)): typ ann_expr) : app_frame ann_expr =
   match expr with
   (* TODO: broaden this case to match nested arrays of functions *)
   | App ((AnnRExpr (fn_position_typ, _) as fn_expr),
@@ -55,12 +56,18 @@ let rec annot_expr_app_frame ((AnnRExpr (node_type, expr)): typ ann_expr) : app_
     (* We have an app form whose type is not a frame around its function's
        return type (should not happen in well-typed AST). *)
     | None -> assert false)
-  | _ -> AnnRExpr (NoApp, map_expr_form ~f_expr:annot_expr_app_frame ~f_elt:annot_elt_app_frame expr)
-and annot_elt_app_frame ((AnnRElt (_, elt)): typ ann_elt) : app_frame ann_elt =
-  AnnRElt (NoApp, map_elt_form ~f_expr:annot_expr_app_frame elt)
-let annot_defn_app_frame ((AnnRDefn (n, t, e)): typ ann_defn) : app_frame ann_defn =
+  | _ -> AnnRExpr (NotApp, (map_expr_form
+                              ~f_expr:annot_expr_app_frame
+                              ~f_elt:annot_elt_app_frame
+                              expr))
+and annot_elt_app_frame
+    ((AnnRElt (_, elt)): typ ann_elt) : app_frame ann_elt =
+  AnnRElt (NotApp, map_elt_form ~f_expr:annot_expr_app_frame elt)
+let annot_defn_app_frame
+    ((AnnRDefn (n, t, e)): typ ann_defn) : app_frame ann_defn =
   AnnRDefn (n, t, annot_expr_app_frame e)
-let annot_prog_app_frame ((AnnRProg (_, defns, expr)): typ ann_prog) : app_frame ann_prog =
+let annot_prog_app_frame
+    ((AnnRProg (_, defns, expr)): typ ann_prog) : app_frame ann_prog =
   let new_expr = annot_expr_app_frame expr in
   let new_annot = annot_of_expr new_expr in
   AnnRProg (new_annot,
