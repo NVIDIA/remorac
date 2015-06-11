@@ -263,7 +263,7 @@ let define_curried_add =
          curried_add)
 
 let lift_curried_add =
-  RExpr (App (RExpr (App (curried_add,
+  RExpr (App (RExpr (App (RExpr (Var "c+"),
                           [RExpr (Arr ([2], [RElt (Int 10); RElt (Int 20)]))])),
               [RExpr (Arr ([2; 3], [RElt (Int 1); RElt (Int 2);
                                     RElt (Int 3); RElt (Int 4);
