@@ -60,6 +60,13 @@ val dep_sum_create : Basic_ast.rem_expr
 val dep_sum_project : Basic_ast.rem_expr
 val remora_compose : Basic_ast.rem_expr
 val fork_compose : Basic_ast.rem_expr
+val define_compose : Basic_ast.rem_defn
+val use_compose : Basic_ast.rem_expr
+val prog_compose : Basic_ast.rem_prog
+val curried_add : Basic_ast.rem_expr
+val define_curried_add : Basic_ast.rem_defn
+val lift_curried_add : Basic_ast.rem_expr
+val prog_curried_add : Basic_ast.rem_prog
 
 module UnitTests : sig
   val suite_init_drop : OUnit2.test

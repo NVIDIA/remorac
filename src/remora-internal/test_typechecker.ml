@@ -694,6 +694,44 @@ end = struct
        "function composition">:: test_17]
 end
 
+module Test_annot_prog_type : sig
+  val tests : U.test
+end = struct
+  open Test_basic_ast;;
+  let typ_of_rem_prog ?(idxs=[])
+                      ?(typs=[])
+                      ?(vars=[])
+                      (p: rem_prog) : typ option =
+    p |> (annot_prog_init ~init:())
+      |> (annot_prog_type idxs typs vars)
+      |> annot_of_prog
+  let assert_prog_type ?(idxs=[])
+                       ?(typs=[])
+                       ?(vars=[])
+                       (p: rem_prog) (check_typ: typ) =
+    match (typ_of_rem_prog ~idxs:idxs ~typs:typs ~vars:vars p) with
+    | Some prog_typ -> assert_typ_equal prog_typ check_typ
+    | None -> U.assert_failure "prog is ill-typed"
+  let test_1 _ =
+    assert_prog_type
+      prog_compose
+      (TArray (IShape [], TInt))
+  let test_2 _ =
+    assert_prog_type
+      ~vars:["+", TArray (IShape [],
+                          TFun ([TArray (IShape [], TInt);
+                                 TArray (IShape [], TInt)],
+                                TArray (IShape [], TInt)))]
+      prog_curried_add
+      (TArray (IShape [INat 2; INat 3], TInt))
+  let tests =
+    let open OUnit2 in
+    "add type annotation to whole program">:::
+      ["function composition">:: test_1;
+       "lifting curried addition">:: test_2]
+end
+
+
 module UnitTests : sig
   val tests : U.test
 end = struct
@@ -710,5 +748,6 @@ end = struct
        Test_typ_equal.tests;
        Test_frame_contribution.tests;
        Test_annot_elt_type.tests;
-       Test_annot_expr_type.tests]
+       Test_annot_expr_type.tests;
+       Test_annot_prog_type.tests]
 end

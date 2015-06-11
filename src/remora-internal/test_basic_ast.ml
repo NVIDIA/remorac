@@ -244,6 +244,34 @@ let use_compose =
 let prog_compose =
   RProg ([define_compose], use_compose)
 
+let curried_add =
+  let inner_app = RExpr (App (RExpr (Var "+"),
+                              [RExpr (Var "x"); RExpr (Var "y")])) in
+  let inner_lambda = RElt (Lam (["y", TArray (IShape [], TInt)],
+                                inner_app)) in
+  let outer_lambda = RElt (Lam (["x", TArray (IShape [], TInt)],
+                                scalar_of_elt inner_lambda)) in
+  RExpr (Arr ([], [outer_lambda]))
+
+let define_curried_add =
+  RDefn ("c+",
+         (TArray (IShape [],
+                  TFun ([TArray (IShape [], TInt)],
+                        TArray (IShape [],
+                                TFun ([TArray (IShape [], TInt)],
+                                      TArray (IShape [], TInt)))))),
+         curried_add)
+
+let lift_curried_add =
+  RExpr (App (RExpr (App (curried_add,
+                          [RExpr (Arr ([2], [RElt (Int 10); RElt (Int 20)]))])),
+              [RExpr (Arr ([2; 3], [RElt (Int 1); RElt (Int 2);
+                                    RElt (Int 3); RElt (Int 4);
+                                    RElt (Int 5); RElt (Int 6)]))]))
+
+let prog_curried_add =
+  RProg ([define_curried_add], lift_curried_add)
+
 (* For any rem_expr, adding blank annotations and then dropping annotations
    should lead back to the same rem_expr *)
 module UnitTests : sig
@@ -300,5 +328,12 @@ end = struct
        "Straight line composition">:: test_expr_init_drop remora_compose;
        "Fork composition">:: test_expr_init_drop fork_compose;
        "Define compose in program">:: test_defn_init_drop define_compose;
-       "Use compose in program">:: test_prog_init_drop prog_compose]
+       "Use compose in program">:: test_prog_init_drop prog_compose;
+       "Curried addition">:: test_expr_init_drop curried_add;
+       "Define curried addition in program">:: test_defn_init_drop
+         define_curried_add;
+       "Apply curried addition to overranked arguments">:: test_expr_init_drop
+         lift_curried_add;
+       "Use curried addition in program">:: test_prog_init_drop
+         prog_curried_add]
 end
