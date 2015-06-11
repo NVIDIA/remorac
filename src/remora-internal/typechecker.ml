@@ -113,6 +113,14 @@ let rec expand_shape (s: idx) : idx list option =
     IShape [dim] :: rest |> return
   | INat _ | ISum _ -> None
 
+(* Rewrite a nested shape (i.e., shape list) in fully-nested form *)
+let rec drop_scalar_shapes (shapes: idx list) : idx list =
+  match shapes with
+  | [] -> shapes
+  | IShape [] :: s :: ss -> drop_scalar_shapes (s :: ss)
+  | s :: IShape [] :: ss -> drop_scalar_shapes (s :: ss)
+  | s :: ss -> s :: drop_scalar_shapes ss
+
 (* Extract the fully nested shape of a type (non-arrays have scalar shape) *)
 let rec shape_of_typ (t: typ) : idx list option =
   match t with
@@ -216,21 +224,25 @@ let typ_equal (t1: typ) (t2: typ) : bool =
   | _ -> false
 
 (* Idenfity the frame shape on a single argument based on its type *)
-let rec frame_contribution (cell_typ: typ) (arg_typ: typ) : idx list option =
-  canonicalize_typ cell_typ >>= fun ct_canonical ->
-  canonicalize_typ arg_typ >>= fun at_canonical ->
+let frame_contribution (cell_typ_: typ) (arg_typ_: typ) : idx list option =
+  let rec frame_contribution_internal
+      (cell_typ: typ) (arg_typ: typ) : idx list option =
+    canonicalize_typ cell_typ >>= fun ct_canonical ->
+    canonicalize_typ arg_typ >>= fun at_canonical ->
   (* Base case: the types are equal *)
-  if typ_equal ct_canonical at_canonical
-  then Some [IShape []]
+    if typ_equal ct_canonical at_canonical
+    then Some [IShape []]
   (* Inductive case: peel away a layer of the actual type's shape *)
-  else match at_canonical with
-  | TArray (shp, elt_type) ->
-    canonicalize_typ (TArray (IShape [], elt_type)) >>= fun elt_array ->
-    if (typ_equal ct_canonical elt_array)
-    then Some [shp]
-    else frame_contribution cell_typ elt_type >>= fun (elt_contrib) ->
-    shp :: elt_contrib |> return
-  | _ -> None
+    else match at_canonical with
+    | TArray (shp, elt_type) ->
+      canonicalize_typ (TArray (IShape [], elt_type)) >>= fun elt_array ->
+      if (typ_equal ct_canonical elt_array)
+      then Some [shp]
+      else frame_contribution_internal cell_typ elt_type >>= fun (elt_contrib) ->
+      shp :: elt_contrib |> return
+    | _ -> None in
+  Option.map ~f:drop_scalar_shapes
+    (frame_contribution_internal cell_typ_ arg_typ_)
 
 (* Some true if xs is a prefix of ys, Some false if ys is a prefix of xs,
    otherwise, None. *)

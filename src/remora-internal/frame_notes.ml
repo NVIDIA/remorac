@@ -73,3 +73,60 @@ let annot_prog_app_frame
   AnnRProg (new_annot,
             List.map ~f:annot_defn_app_frame defns,
             new_expr)
+
+
+type arg_frame =
+| ArgFrame of idx list
+| NotArg
+
+(* Annotate subnodes of function application nodes with their argument frame
+   shapes. We have to track whether we're being called on a node that is
+   directly part of an application form (e.g., function position in a type/index
+   applciation or the body of an abstraction form) and if so, what enclosing app
+   form's principal frame is. If we are currently at an argument, we note its
+   contribution to the application's frame. Otherwise, we mark it as NotArg. *)
+let rec annot_expr_arg_frame
+    ((AnnRExpr (node_type, expr)): typ ann_expr)
+    ~(outer_expectation: typ option) : arg_frame ann_expr =
+  let my_frame = match outer_expectation with
+    | Some t -> ArgFrame (Option.value_exn (frame_contribution t node_type))
+    | None -> NotArg in
+  match expr with
+  | App ((AnnRExpr (fn_type, fn_expr_form)) as fn, args) ->
+    let arg_expected_typs = match elt_of_typ fn_type with
+      | (Some (TFun (typs, _))) -> typs
+      (* In a well-typed AST, the array in function position should have
+         functions as its elements. *)
+      | _ -> assert false in
+    AnnRExpr (my_frame, App (annot_expr_arg_frame
+                               ~outer_expectation:(elt_of_typ fn_type) fn,
+                             List.map2_exn
+                               ~f:(fun expect arg ->
+                                 annot_expr_arg_frame
+                                     ~outer_expectation:(Some expect) arg)
+                               arg_expected_typs args))
+  | _ -> AnnRExpr (my_frame, (map_expr_form
+                                ~f_expr:(annot_expr_arg_frame
+                                           ~outer_expectation:None)
+                                ~f_elt:annot_elt_arg_frame expr))
+
+and annot_elt_arg_frame
+    ((AnnRElt (node_type, elt)): typ ann_elt) : arg_frame ann_elt =
+  match elt with
+  | Expr e -> AnnRElt (NotArg,
+                       Expr (annot_expr_arg_frame ~outer_expectation:None e))
+  | Lam (bindings, body) ->
+    AnnRElt (NotArg, Lam (bindings,
+                          annot_expr_arg_frame ~outer_expectation:None body))
+  | Float _ | Int _ | Bool _ as l -> AnnRElt (NotArg, l)
+
+let annot_defn_arg_frame
+    ((AnnRDefn (n, t, e)): typ ann_defn) : arg_frame ann_defn =
+  AnnRDefn (n, t, annot_expr_arg_frame ~outer_expectation:None e)
+
+let annot_prog_arg_frame
+    ((AnnRProg (annot, defns, expr)): typ ann_prog) : arg_frame ann_prog =
+  let (AnnRExpr (new_annot, _)) as new_expr =
+    annot_expr_arg_frame ~outer_expectation:None expr
+  and new_defns = List.map ~f:annot_defn_arg_frame defns in
+  AnnRProg (new_annot, new_defns, new_expr)

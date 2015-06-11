@@ -36,3 +36,12 @@ val annot_expr_app_frame : typ ann_expr -> app_frame ann_expr
 val annot_elt_app_frame : typ ann_elt -> app_frame ann_elt
 val annot_defn_app_frame : typ ann_defn -> app_frame ann_defn
 val annot_prog_app_frame : typ ann_prog -> app_frame ann_prog
+
+type arg_frame =
+| ArgFrame of idx list
+| NotArg
+
+val annot_expr_arg_frame : typ ann_expr -> outer_expectation: typ option -> arg_frame ann_expr
+val annot_elt_arg_frame : typ ann_elt -> arg_frame ann_elt
+val annot_defn_arg_frame : typ ann_defn -> arg_frame ann_defn
+val annot_prog_arg_frame : typ ann_prog -> arg_frame ann_prog
