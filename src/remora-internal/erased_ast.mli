@@ -1,0 +1,109 @@
+(******************************************************************************)
+(* Copyright (c) 2015, NVIDIA CORPORATION. All rights reserved.               *)
+(*                                                                            *)
+(* Redistribution and use in source and binary forms, with or without         *)
+(* modification, are permitted provided that the following conditions         *)
+(* are met:                                                                   *)
+(*  * Redistributions of source code must retain the above copyright          *)
+(*    notice, this list of conditions and the following disclaimer.           *)
+(*  * Redistributions in binary form must reproduce the above copyright       *)
+(*    notice, this list of conditions and the following disclaimer in the     *)
+(*    documentation and/or other materials provided with the distribution.    *)
+(*  * Neither the name of NVIDIA CORPORATION nor the names of its             *)
+(*    contributors may be used to endorse or promote products derived         *)
+(*    from this software without specific prior written permission.           *)
+(*                                                                            *)
+(* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY       *)
+(* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE          *)
+(* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR         *)
+(* PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR          *)
+(* CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,      *)
+(* EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,        *)
+(* PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR         *)
+(* PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY        *)
+(* OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT               *)
+(* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE      *)
+(* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.       *)
+(******************************************************************************)
+
+module B = Basic_ast
+
+type var = B.var with sexp
+
+type idx = B.idx with sexp
+
+type srt = B.srt with sexp
+
+type typ =
+| TBase
+| TUnknown
+| TFun of (typ list * typ)
+| TDProd of ((var * srt) list * typ)
+| TDSum of ((var * srt) list * typ)
+| TArray of (idx * typ)
+with sexp
+
+type ('self_t, 'elt_t) expr_form =
+| App of ('self_t * 'self_t list * typ)
+| IApp of ('self_t * idx list)
+| ILam of ((var * srt) list * 'self_t)
+| Arr of (int list * 'elt_t list)
+| Var of var
+| Pack of (idx list * 'self_t)
+| Unpack of (var list * var * 'self_t * 'self_t)
+and ('self_t, 'expr_t) elt_form =
+| Float of float
+| Int of int
+| Bool of bool
+| Lam of (var list * 'expr_t)
+| Expr of 'expr_t
+with sexp
+
+val map_expr_form :
+  f_expr: ('old_self_t -> 'new_self_t)
+  -> f_elt: ('old_elt_t -> 'new_elt_t)
+  -> ('old_self_t, 'old_elt_t) expr_form
+  -> ('new_self_t, 'new_elt_t) expr_form
+
+val map_elt_form :
+  f_expr: ('old_expr_t -> 'new_expr_t)
+  -> ('old_self_t, 'old_expr_t) elt_form
+  -> ('new_self_t, 'new_expr_t) elt_form
+
+type erased_expr = EExpr of (erased_expr, erased_elt) expr_form
+and erased_elt = EElt of (erased_elt, erased_expr) elt_form
+with sexp
+type erased_defn = EDefn of var * typ * erased_expr with sexp
+type erased_prog = EProg of erased_defn list * erased_expr with sexp
+
+type 'annot ann_expr =
+| AnnEExpr of 'annot * ('annot ann_expr, 'annot ann_elt) expr_form
+and 'annot ann_elt =
+| AnnEElt of 'annot * ('annot ann_elt, 'annot ann_expr) elt_form
+  with sexp
+type 'annot ann_defn = AnnEDefn of var * typ * 'annot ann_expr with sexp
+type 'annot ann_prog =
+| AnnEProg of 'annot * 'annot ann_defn list * 'annot ann_expr
+with sexp
+
+val of_expr : B.rem_expr -> erased_expr
+val of_elt : B.rem_elt -> erased_elt
+val of_defn : B.rem_defn -> erased_defn
+val of_prog : B.rem_prog -> erased_prog
+
+val of_ann_expr :
+  ?merge:('annot -> 'annot -> 'annot)
+  -> 'annot B.ann_expr
+  -> 'annot ann_expr
+val of_ann_elt :
+  ?merge:('annot -> 'annot -> 'annot)
+  -> 'annot B.ann_elt
+  -> 'annot ann_elt
+val of_ann_defn :
+  ?merge:('annot -> 'annot -> 'annot)
+  -> 'annot B.ann_defn
+  -> 'annot ann_defn
+val of_ann_prog :
+  ?merge:('annot -> 'annot -> 'annot)
+  -> 'annot B.ann_prog
+  -> 'annot ann_prog
