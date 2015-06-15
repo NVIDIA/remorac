@@ -201,3 +201,12 @@ let of_ann_prog ?(merge = (fun a1 a2 -> a1)) (B.AnnRProg (annot, defns, expr)) =
   AnnEProg (annot,
             List.map ~f:(of_ann_defn ~merge:merge) defns,
             of_ann_expr ~merge:merge expr)
+
+let rec annot_expr_drop ((AnnEExpr (_, e)): 'annot ann_expr) : erased_expr =
+  EExpr (map_expr_form ~f_expr:annot_expr_drop ~f_elt:annot_elt_drop e)
+and annot_elt_drop ((AnnEElt (_, e)): 'annot ann_elt) : erased_elt =
+  EElt (map_elt_form ~f_expr:annot_expr_drop e)
+let annot_defn_drop ((AnnEDefn (n, t, v)): 'annot ann_defn) : erased_defn =
+  EDefn (n, t, annot_expr_drop v)
+let annot_prog_drop ((AnnEProg (_, defns, expr)): 'annot ann_prog) : erased_prog =
+  EProg (List.map ~f:annot_defn_drop defns, annot_expr_drop expr)

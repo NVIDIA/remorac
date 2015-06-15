@@ -107,3 +107,8 @@ val of_ann_prog :
   ?merge:('annot -> 'annot -> 'annot)
   -> 'annot B.ann_prog
   -> 'annot ann_prog
+
+val annot_expr_drop : 'annot ann_expr -> erased_expr
+val annot_elt_drop : 'annot ann_elt -> erased_elt
+val annot_defn_drop : 'annot ann_defn -> erased_defn
+val annot_prog_drop : 'annot ann_prog -> erased_prog
