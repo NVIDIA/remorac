@@ -17,7 +17,7 @@ This allows AST traversals to explicitly handle only the non-trivial cases and l
 For example, annot_expr_app_frame in Frame_notes annotates App forms with their frame shapes and marks "not applicable" on other forms.
 
 A non-annotated AST can be converted to an annotated one where every node is marked with a designated "blank" annotation.
-Any function can also be mapped over the annotations in an AST, and two ASTs which differ only in their annotations can have their annotations merged into pairs.
+Any function can also be mapped over the annotations in an AST, and two ASTs which differ only in their annotations can have their annotations merged using some user-provided function (e.g. constructing pairs).
 These procedures reuse as much of the input AST structure as possible (e.g., merging will not copy annotations or AST leaves, just create new references to them).
 By treating the AST as a persistent data structure, annotation passes can safely "forget" their input annotations.
 If the input annotations are needed later, they can be merged back in.
