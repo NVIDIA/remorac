@@ -28,10 +28,26 @@
 
 open Basic_ast
 
-val annot_elt_merge : 'a ann_elt -> 'b ann_elt -> ('a * 'b) ann_elt option
-val annot_expr_merge : 'a ann_expr -> 'b ann_expr -> ('a * 'b) ann_expr option
-val annot_defn_merge : 'a ann_defn -> 'b ann_defn -> ('a * 'b) ann_defn option
-val annot_prog_merge : 'a ann_prog -> 'b ann_prog -> ('a * 'b) ann_prog option
+val annot_elt_merge :
+  ('a -> 'b -> 'c)
+  -> 'a ann_elt
+  -> 'b ann_elt
+  -> 'c ann_elt option
+val annot_expr_merge :
+  ('a -> 'b -> 'c)
+  -> 'a ann_expr
+  -> 'b ann_expr
+  -> 'c ann_expr option
+val annot_defn_merge :
+  ('a -> 'b -> 'c)
+  -> 'a ann_defn
+  -> 'b ann_defn
+  -> 'c ann_defn option
+val annot_prog_merge :
+  ('a -> 'b -> 'c)
+  -> 'a ann_prog
+  -> 'b ann_prog
+  -> 'c ann_prog option
 
 val annot_elt_fmap : f:('a -> 'b) -> 'a ann_elt -> 'b ann_elt
 val annot_expr_fmap : f:('a -> 'b) -> 'a ann_expr -> 'b ann_expr

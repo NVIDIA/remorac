@@ -38,19 +38,20 @@ let map2 ~f xs ys =
 
 (* Given two matching ASTs, merge their annotations *)
 let rec annot_elt_merge
+    (f: 'a -> 'b -> 'c)
     (ast1: 'a ann_elt)
-    (ast2: 'b ann_elt) : ('a * 'b) ann_elt option =
+    (ast2: 'b ann_elt) : 'c ann_elt option =
   let (AnnRElt (annot1, elt1), AnnRElt (annot2, elt2)) = (ast1, ast2) in
-  let new_annot = (annot1, annot2)
-  and (new_elt: (('a * 'b) ann_elt, ('a * 'b) ann_expr) elt_form option) =
+  let new_annot = f annot1 annot2
+  and (new_elt: ('c ann_elt, 'c ann_expr) elt_form option) =
     match (elt1, elt2) with
     | (Lam (bind1, body1), Lam (bind2, body2)) ->
       if (bind1 = bind2)
-      then (annot_expr_merge body1 body2 >>= fun new_body ->
+      then (annot_expr_merge f body1 body2 >>= fun (new_body: 'c ann_expr) ->
             Some (Lam (bind1, new_body)))
       else None
     | (Expr e1, Expr e2) ->
-      annot_expr_merge e1 e2 >>= fun new_expr ->
+      annot_expr_merge f e1 e2 >>= fun (new_expr: 'c ann_expr) ->
       Some (Expr new_expr)
     (* In these cases, must reconstruct elt1 to use it at a different type. *)
     | ((Float c1) as v1, Float c2) -> Option.some_if (c1 = c2) v1
@@ -61,52 +62,53 @@ let rec annot_elt_merge
   in new_elt >>= fun valid_new_elt ->
   return (AnnRElt (new_annot, valid_new_elt))
 and annot_expr_merge
+    (f: 'a -> 'b -> 'c)
     (ast1: 'a ann_expr)
-    (ast2: 'b ann_expr) : ('a * 'b) ann_expr option =
+    (ast2: 'b ann_expr) : 'c ann_expr option =
   let (AnnRExpr (annot1, expr1), AnnRExpr (annot2, expr2)) = (ast1, ast2) in
-  let new_annot = (annot1, annot2)
-  and (new_expr: (('a * 'b) ann_expr, ('a * 'b) ann_elt) expr_form option) =
+  let new_annot = f annot1 annot2
+  and (new_expr: ('c ann_expr, 'c ann_elt) expr_form option) =
     match (expr1, expr2) with
     | (App (fn1, args1), App (fn2, args2)) ->
-      annot_expr_merge fn1 fn2 >>= fun new_fn ->
-      map2 ~f:annot_expr_merge args1 args2 >>= fun merged ->
+      annot_expr_merge f fn1 fn2 >>= fun new_fn ->
+      map2 ~f:(annot_expr_merge f) args1 args2 >>= fun merged ->
       Option.all merged >>= fun new_args ->
       return (App (new_fn, new_args))
     | (TApp (fn1, t_args1), TApp (fn2, t_args2)) ->
-      annot_expr_merge fn1 fn2 >>= fun new_fn ->
+      annot_expr_merge f fn1 fn2 >>= fun new_fn ->
       Option.some_if (t_args1 = t_args2) (TApp (new_fn, t_args1))
     | (TLam (bind1, body1), TLam (bind2, body2)) ->
       if bind1 = bind2
-      then annot_expr_merge body1 body2 >>= fun new_body ->
+      then annot_expr_merge f body1 body2 >>= fun new_body ->
       Some (TLam (bind1, new_body))
       else None
     | (IApp (fn1, i_args1), IApp (fn2, i_args2)) ->
-      annot_expr_merge fn1 fn2 >>= fun new_fn ->
+      annot_expr_merge f fn1 fn2 >>= fun new_fn ->
       Option.some_if (i_args1 = i_args2) (IApp (new_fn, i_args1))
     | (ILam (bind1, body1), ILam (bind2, body2)) ->
       if bind1 = bind2
-      then annot_expr_merge body1 body2 >>= fun new_body ->
+      then annot_expr_merge f body1 body2 >>= fun new_body ->
       Some (ILam (bind1, new_body))
       else None
     | (Arr (dims1, elts1) , Arr (dims2, elts2)) ->
       if dims1 = dims2
       (* then (try Some (List.map2_exn ~f:annot_elt_merge elts1 elts2) with *)
       (* | Invalid_argument _ -> None) >>= fun merged -> *)
-      then map2 ~f:annot_elt_merge elts1 elts2 >>= fun merged ->
+      then map2 ~f:(annot_elt_merge f) elts1 elts2 >>= fun merged ->
       Option.all merged >>= fun new_elts ->
       return (Arr (dims2, new_elts))
       else None
     | (Var v1, Var v2) -> Option.some_if (v1 = v2) (Var v1)
     | (Pack (idxs1, value1, type1), Pack (idxs2, value2, type2)) ->
       if idxs1 = idxs2 && type1 = type2
-      then (annot_expr_merge value1 value2 >>= fun new_value ->
+      then (annot_expr_merge f value1 value2 >>= fun new_value ->
             Some (Pack (idxs1, new_value, type1)))
       else None
     | (Unpack (i_vars1, v1, dsum1, body1),
        Unpack (i_vars2, v2, dsum2, body2)) ->
       if i_vars1 = i_vars2 && v1 = v2
-      then annot_expr_merge dsum1 dsum2 >>= fun new_dsum ->
-      annot_expr_merge body1 body2 >>= fun new_body ->
+      then annot_expr_merge f dsum1 dsum2 >>= fun new_dsum ->
+      annot_expr_merge f body1 body2 >>= fun new_body ->
       return (Unpack (i_vars1, v1, new_dsum, new_body))
       else None
     (* Anything else with an already-handled form means mismatching ASTs. *)
@@ -116,21 +118,23 @@ and annot_expr_merge
   return (AnnRExpr (new_annot, valid_new_expr))
 ;;
 let annot_defn_merge
+    (f: 'a -> 'b -> 'c)
     (ast1: 'a ann_defn)
-    (ast2: 'b ann_defn) : ('a * 'b) ann_defn option =
+    (ast2: 'b ann_defn) : 'c ann_defn option =
   let (AnnRDefn (n1, t1, b1), AnnRDefn (n2, t2, b2)) = (ast1, ast2) in
   if (n1 = n2 && t1 = t2)
-  then annot_expr_merge b1 b2 >>= fun body -> AnnRDefn (n1, t1, body) |> return
+  then annot_expr_merge f b1 b2 >>= fun body -> AnnRDefn (n1, t1, body) |> return
   else None
 let annot_prog_merge
+    (f: 'a -> 'b -> 'c)
     (ast1: 'a ann_prog)
-    (ast2: 'b ann_prog) : ('a * 'b) ann_prog option =
+    (ast2: 'b ann_prog) : 'c ann_prog option =
   let (AnnRProg (annot1, defs1, expr1), AnnRProg (annot2, defs2, expr2)) = (ast1, ast2) in
-  map2 ~f:annot_defn_merge defs1 defs2
+  map2 ~f:(annot_defn_merge f) defs1 defs2
     |> Option.map ~f:Option.all |> Option.join
-  >>= fun (ds: ('a * 'b) ann_defn list) ->
-  annot_expr_merge expr1 expr2 >>= fun e ->
-  AnnRProg ((annot1, annot2), ds, e) |> return
+  >>= fun (ds: 'c ann_defn list) ->
+  annot_expr_merge f expr1 expr2 >>= fun e ->
+  AnnRProg (f annot1 annot2, ds, e) |> return
 
 
 (* Given an annotated AST, apply a function to its annotations *)
