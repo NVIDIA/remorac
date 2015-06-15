@@ -112,3 +112,8 @@ val annot_expr_drop : 'annot ann_expr -> erased_expr
 val annot_elt_drop : 'annot ann_elt -> erased_elt
 val annot_defn_drop : 'annot ann_defn -> erased_defn
 val annot_prog_drop : 'annot ann_prog -> erased_prog
+
+val fix_expr_app_type : typ ann_expr -> typ ann_expr
+val fix_elt_app_type : typ ann_elt -> typ ann_elt
+val fix_defn_app_type : typ ann_defn -> typ ann_defn
+val fix_prog_app_type : typ ann_prog -> typ ann_prog

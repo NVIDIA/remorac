@@ -149,7 +149,7 @@ let of_prog (B.RProg (defns, expr)) =
   EProg (List.map ~f:of_defn defns, of_expr expr)
 
 (* Type-erase an annotated AST. Because type application/abstraction nodes
-   are collapsed away by erasure, we need to dedice what annotation to use.
+   are collapsed away by erasure, we need to decide what annotation to use.
    The annotations from from the outer TApp/TLam and the one from the inner
    expression are both available and can be merged using a passed-in
    procedure. In the default case, the outer annotation is kept, and the inner
@@ -210,3 +210,17 @@ let annot_defn_drop ((AnnEDefn (n, t, v)): 'annot ann_defn) : erased_defn =
   EDefn (n, t, annot_expr_drop v)
 let annot_prog_drop ((AnnEProg (_, defns, expr)): 'annot ann_prog) : erased_prog =
   EProg (List.map ~f:annot_defn_drop defns, annot_expr_drop expr)
+
+(* Use AST type annotations to update App forms' result type declarations. *)
+let rec fix_expr_app_type (AnnEExpr (t, e): typ ann_expr) : typ ann_expr =
+  AnnEExpr (t, (match e with
+  | App (fn, args, _) -> App (fn, args, t)
+  | _ -> (map_expr_form
+            ~f_expr:fix_expr_app_type
+            ~f_elt:fix_elt_app_type e)))
+and fix_elt_app_type (AnnEElt (t, l): typ ann_elt) : typ ann_elt =
+  AnnEElt (t, map_elt_form ~f_expr:fix_expr_app_type l)
+let fix_defn_app_type (AnnEDefn (n, t, v): typ ann_defn) : typ ann_defn =
+  AnnEDefn (n, t, fix_expr_app_type v)
+let fix_prog_app_type (AnnEProg (t, defns, expr): typ ann_prog) : typ ann_prog =
+  AnnEProg (t, List.map ~f:fix_defn_app_type defns, fix_expr_app_type expr)
