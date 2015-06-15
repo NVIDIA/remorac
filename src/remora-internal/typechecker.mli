@@ -49,6 +49,9 @@ val typ_equal : typ -> typ -> bool
 
 val frame_contribution  : typ -> typ -> idx list option
 
+val typ_of_shape : typ -> idx list -> typ
+val canonical_typ_of_shape : typ -> idx list -> typ option
+
 val annot_elt_type : srt env -> kind env -> typ env -> 'a ann_elt
   -> typ option ann_elt
 val annot_expr_type : srt env -> kind env -> typ env -> 'a ann_expr

@@ -35,6 +35,11 @@ type app_frame =
 | AppFrame of idx list
 | NotApp
 
+let app_frame_of_option = function
+  | Some dims -> AppFrame dims | None -> NotApp
+let option_of_app_frame = function
+  | AppFrame dims -> Some dims | NotApp -> None
+
 (* Annotate an AST with the frame shape of each application form. *)
 let rec annot_expr_app_frame
     ((AnnRExpr (node_type, expr)): typ ann_expr) : app_frame ann_expr =
@@ -79,54 +84,81 @@ type arg_frame =
 | ArgFrame of idx list
 | NotArg
 
+let arg_frame_of_option = function
+  | Some dims -> ArgFrame dims | None -> NotArg
+let option_of_arg_frame = function
+  | ArgFrame dims -> Some dims | NotArg -> None
+
+
 (* Annotate subnodes of function application nodes with their argument frame
    shapes. We have to track whether we're being called on a node that is
    directly part of an application form (e.g., function position in a type/index
    applciation or the body of an abstraction form) and if so, what enclosing app
-   form's principal frame is. If we are currently at an argument, we note its
-   contribution to the application's frame. Otherwise, we mark it as NotArg. *)
-let rec annot_expr_arg_frame
-    ((AnnRExpr (node_type, expr)): typ ann_expr)
-    ~(outer_expectation: typ option) : arg_frame ann_expr =
-  let my_frame = match outer_expectation with
-    | Some t -> ArgFrame (Option.value_exn (frame_contribution t node_type))
-    | None -> NotArg in
+   form's principal frame is. If we are currently at an argument, we note how
+   its frame must expand in order to match the application's frame. Otherwise,
+   we mark it as NotArg. *)
+let rec annot_expr_arg_expansion
+    ((AnnRExpr ((node_app_frame, node_type), expr)): (app_frame * typ) ann_expr)
+    ~(outer_expectation: typ option)
+    ~(outer_frame : app_frame) : arg_frame ann_expr =
+  let open Option.Monad_infix in
+  let my_expansion : arg_frame =
+    (option_of_app_frame outer_frame >>= fun outer_frame_shape ->
+     outer_expectation >>= fun outer_t ->
+     frame_contribution outer_t node_type >>= fun my_frame ->
+     frame_contribution
+       (typ_of_shape TInt my_frame)
+       (typ_of_shape TInt outer_frame_shape) >>= fun missing_dims ->
+     Option.return (ArgFrame missing_dims)) |> (Option.value ~default:NotArg) in
   match expr with
-  | App ((AnnRExpr (fn_type, fn_expr_form)) as fn, args) ->
+  | App ((AnnRExpr ((_, fn_type), fn_expr_form)) as fn, args) ->
     let arg_expected_typs = match elt_of_typ fn_type with
       | (Some (TFun (typs, _))) -> typs
       (* In a well-typed AST, the array in function position should have
          functions as its elements. *)
       | _ -> assert false in
-    AnnRExpr (my_frame, App (annot_expr_arg_frame
-                               ~outer_expectation:(elt_of_typ fn_type) fn,
-                             List.map2_exn
-                               ~f:(fun expect arg ->
-                                 annot_expr_arg_frame
-                                     ~outer_expectation:(Some expect) arg)
-                               arg_expected_typs args))
-  | _ -> AnnRExpr (my_frame, (map_expr_form
-                                ~f_expr:(annot_expr_arg_frame
-                                           ~outer_expectation:None)
-                                ~f_elt:annot_elt_arg_frame expr))
+    AnnRExpr (my_expansion, App (annot_expr_arg_expansion
+                                   ~outer_expectation:(elt_of_typ fn_type)
+                                   ~outer_frame:node_app_frame fn,
+                                 List.map2_exn
+                                   ~f:(fun expect arg ->
+                                     annot_expr_arg_expansion
+                                       ~outer_expectation:(Some expect)
+                                       ~outer_frame:node_app_frame arg)
+                                   arg_expected_typs args))
+  | _ -> AnnRExpr (my_expansion, (map_expr_form
+                                    ~f_expr:(annot_expr_arg_expansion
+                                               ~outer_expectation:None
+                                               ~outer_frame:NotApp)
+                                    ~f_elt:annot_elt_arg_expansion expr))
 
-and annot_elt_arg_frame
-    ((AnnRElt (node_type, elt)): typ ann_elt) : arg_frame ann_elt =
+and annot_elt_arg_expansion
+    ((AnnRElt ((_, node_type), elt)): (app_frame * typ) ann_elt)
+    : arg_frame ann_elt =
   match elt with
   | Expr e -> AnnRElt (NotArg,
-                       Expr (annot_expr_arg_frame ~outer_expectation:None e))
+                       Expr (annot_expr_arg_expansion
+                               ~outer_expectation:None
+                               ~outer_frame:NotApp e))
   | Lam (bindings, body) ->
     AnnRElt (NotArg, Lam (bindings,
-                          annot_expr_arg_frame ~outer_expectation:None body))
+                          annot_expr_arg_expansion
+                            ~outer_expectation:None
+                            ~outer_frame:NotApp body))
   | Float _ | Int _ | Bool _ as l -> AnnRElt (NotArg, l)
 
-let annot_defn_arg_frame
-    ((AnnRDefn (n, t, e)): typ ann_defn) : arg_frame ann_defn =
-  AnnRDefn (n, t, annot_expr_arg_frame ~outer_expectation:None e)
+let annot_defn_arg_expansion
+    ((AnnRDefn (n, t, e)): (app_frame * typ) ann_defn) : arg_frame ann_defn =
+  AnnRDefn (n, t, annot_expr_arg_expansion
+    ~outer_expectation:None
+    ~outer_frame:NotApp e)
 
 let annot_prog_arg_frame
-    ((AnnRProg (annot, defns, expr)): typ ann_prog) : arg_frame ann_prog =
+    ((AnnRProg (annot, defns, expr)): (app_frame * typ) ann_prog) : arg_frame ann_prog =
   let (AnnRExpr (new_annot, _)) as new_expr =
-    annot_expr_arg_frame ~outer_expectation:None expr
-  and new_defns = List.map ~f:annot_defn_arg_frame defns in
+    annot_expr_arg_expansion
+      ~outer_expectation:None
+      ~outer_frame:NotApp
+      expr
+  and new_defns = List.map ~f:annot_defn_arg_expansion defns in
   AnnRProg (new_annot, new_defns, new_expr)

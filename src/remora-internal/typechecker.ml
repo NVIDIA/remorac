@@ -244,6 +244,12 @@ let frame_contribution (cell_typ_: typ) (arg_typ_: typ) : idx list option =
   Option.map ~f:drop_scalar_shapes
     (frame_contribution_internal cell_typ_ arg_typ_)
 
+(* Construct a type from a chosen cell type and shape *)
+let typ_of_shape (cell: typ) (shp: idx list) : typ =
+  List.fold_right ~init:cell ~f:(fun i t -> TArray (i, t)) shp
+let canonical_typ_of_shape (cell: typ) (shp: idx list) : typ option =
+  canonicalize_typ (typ_of_shape cell shp)
+
 (* Some true if xs is a prefix of ys, Some false if ys is a prefix of xs,
    otherwise, None. *)
 let rec prefix_of (xs: 'a list) (ys: 'a list) : bool option =
