@@ -1,0 +1,38 @@
+Syntax Tree
+In Remora, expressions and array elements are syntactically separated.
+Every expression must represent an array, whereas array elements may be non-array values (such as base data and functions).
+This is normally described with two mutually recursive tree types, one for expressions and one for elements.
+Here, we use delayed recursion to gain some flexibility about AST annotations (which will be added by later passes).
+The compiler's abstract syntax tree is defined as a variant, with one branch for each possible syntactic form.
+
+Two ways to complete the recursion are offered.
+A rem_expr or rem_elt simply uses rem_expr and rem_elt as the expression and element child node types.
+The term (foo bar baz) would be represented as RExpr (App (RExpr foo, [RExpr bar; RExpr baz])).
+This form is meant for constructing either by hand in test data or by a parser, which has no information to include as annotations.
+In an ann_expr or ann_elt, the constructor includes a polymorphic annotation field.
+
+There is a pair of procedures for mapping some function over the AST.
+The mapped function must specify the behavior at each node; map handles the recursion as appropriate.
+This allows AST traversals to explicitly handle only the non-trivial cases and leave simple pass-through cases to map_expr_form/map_elt_for.
+For example, annot_expr_app_frame in Frame_notes annotates App forms with their frame shapes and marks "not applicable" on other forms.
+
+A non-annotated AST can be converted to an annotated one where every node is marked with a designated "blank" annotation.
+Any function can also be mapped over the annotations in an AST, and two ASTs which differ only in their annotations can have their annotations merged into pairs.
+These procedures reuse as much of the input AST structure as possible (e.g., merging will not copy annotations or AST leaves, just create new references to them).
+By treating the AST as a persistent data structure, annotation passes can safely "forget" their input annotations.
+If the input annotations are needed later, they can be merged back in.
+
+
+No type inference
+
+
+Annotating with types
+
+
+Annotating with frames
+
+
+Erasing explicit types
+
+
+Map/Replicate IR
