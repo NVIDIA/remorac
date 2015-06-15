@@ -30,7 +30,15 @@ Annotating with types
 
 
 Annotating with frames
-
+Once type annotations are present, the frame shape in an application form can be determined by comparing the function's result cell type with the actual type ascribed to the application form.
+The function for making this comparison is the same frame_contribution used in type checking.
+This is the information which will be needed later for determining what dimensions a Map form should look past.
+Map will treat all of its arguments the same, so the pass which emits them must also emit Replicate operations to ensure that all arguments in an application form have the same frame shape.
+A Replicate must add dimensions to its argument to expand the argument's own frame shape to match that of the application form surrounding it.
+To prepare for this, every argument within an App form is annotated with the necessary frame expansion.
+This pass requires extra arguments which give the expected cell type for the current expression and the overall frame shape of the enclosing application.
+When processing an App form, the recursive calls for the arguments are given the corresponding piece of the function's type annotation as well as the App form's frame shape annotation.
+Recursive calls for subterms of non-Apps are given None and NotApp to indicate that they should give NotArg as their expansion annotation.
 
 Erasing explicit types
 
