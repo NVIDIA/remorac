@@ -34,6 +34,7 @@ open Typechecker
 type app_frame =
 | AppFrame of idx list
 | NotApp
+with sexp
 
 let app_frame_of_option = function
   | Some dims -> AppFrame dims | None -> NotApp
@@ -80,9 +81,11 @@ let annot_prog_app_frame
             new_expr)
 
 
+type arg_frame_rec = {frame: idx list; expansion: idx list} with sexp
 type arg_frame =
-| ArgFrame of idx list
+| ArgFrame of arg_frame_rec
 | NotArg
+with sexp
 
 let arg_frame_of_option = function
   | Some dims -> ArgFrame dims | None -> NotArg
@@ -109,7 +112,8 @@ let rec annot_expr_arg_expansion
      frame_contribution
        (typ_of_shape TInt my_frame)
        (typ_of_shape TInt outer_frame_shape) >>= fun missing_dims ->
-     Option.return (ArgFrame missing_dims)) |> (Option.value ~default:NotArg) in
+     Option.return (ArgFrame {expansion = missing_dims; frame = my_frame}))
+        |> (Option.value ~default:NotArg) in
   match expr with
   | App ((AnnRExpr ((_, fn_type), fn_expr_form)) as fn, args) ->
     let arg_expected_typs = match elt_of_typ fn_type with
@@ -153,7 +157,7 @@ let annot_defn_arg_expansion
     ~outer_expectation:None
     ~outer_frame:NotApp e)
 
-let annot_prog_arg_frame
+let annot_prog_arg_expansion
     ((AnnRProg (annot, defns, expr)): (app_frame * typ) ann_prog) : arg_frame ann_prog =
   let (AnnRExpr (new_annot, _)) as new_expr =
     annot_expr_arg_expansion

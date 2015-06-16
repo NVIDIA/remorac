@@ -31,17 +31,31 @@ open Basic_ast
 type app_frame =
 | AppFrame of idx list
 | NotApp
+with sexp
 
 val annot_expr_app_frame : typ ann_expr -> app_frame ann_expr
 val annot_elt_app_frame : typ ann_elt -> app_frame ann_elt
 val annot_defn_app_frame : typ ann_defn -> app_frame ann_defn
 val annot_prog_app_frame : typ ann_prog -> app_frame ann_prog
 
-type arg_frame =
-| ArgFrame of idx list
-| NotArg
 
-val annot_expr_arg_frame : typ ann_expr -> outer_expectation: typ option -> arg_frame ann_expr
-val annot_elt_arg_frame : typ ann_elt -> arg_frame ann_elt
-val annot_defn_arg_frame : typ ann_defn -> arg_frame ann_defn
-val annot_prog_arg_frame : typ ann_prog -> arg_frame ann_prog
+type arg_frame_rec = {frame: idx list; expansion: idx list} with sexp
+type arg_frame =
+| ArgFrame of arg_frame_rec
+| NotArg
+with sexp
+
+val annot_expr_arg_expansion :
+  (app_frame * typ) ann_expr
+  -> outer_expectation: typ option
+  -> outer_frame: app_frame
+  -> arg_frame ann_expr
+val annot_elt_arg_expansion :
+  (app_frame * typ) ann_elt
+  -> arg_frame ann_elt
+val annot_defn_arg_expansion :
+  (app_frame * typ) ann_defn
+  -> arg_frame ann_defn
+val annot_prog_arg_expansion :
+  (app_frame * typ) ann_prog
+  -> arg_frame ann_prog
