@@ -40,6 +40,9 @@ let app_frame_of_option = function
   | Some dims -> AppFrame dims | None -> NotApp
 let option_of_app_frame = function
   | AppFrame dims -> Some dims | NotApp -> None
+let idxs_of_app_frame_exn = function
+  | AppFrame idxs -> idxs
+  | _ -> raise (Failure "Not an App form")
 
 (* Annotate an AST with the frame shape of each application form. *)
 let rec annot_expr_app_frame
@@ -91,6 +94,13 @@ let arg_frame_of_option = function
   | Some dims -> ArgFrame dims | None -> NotArg
 let option_of_arg_frame = function
   | ArgFrame dims -> Some dims | NotArg -> None
+let frame_of_arg_exn = function
+  | ArgFrame {frame = f; expansion = _} -> f
+  | NotArg -> raise (Failure "Not an arg")
+let expansion_of_arg_exn = function
+  | ArgFrame {frame = _; expansion = e} -> e
+  | NotArg -> raise (Failure "Not an arg")
+
 
 
 (* Annotate subnodes of function application nodes with their argument frame

@@ -33,6 +33,10 @@ type app_frame =
 | NotApp
 with sexp
 
+val app_frame_of_option : idx list option -> app_frame
+val option_of_app_frame : app_frame -> idx list option
+val idxs_of_app_frame_exn : app_frame -> idx list
+
 val annot_expr_app_frame : typ ann_expr -> app_frame ann_expr
 val annot_elt_app_frame : typ ann_elt -> app_frame ann_elt
 val annot_defn_app_frame : typ ann_defn -> app_frame ann_defn
@@ -44,6 +48,11 @@ type arg_frame =
 | ArgFrame of arg_frame_rec
 | NotArg
 with sexp
+
+val arg_frame_of_option : arg_frame_rec option -> arg_frame
+val option_of_arg_frame : arg_frame -> arg_frame_rec option
+val frame_of_arg_exn : arg_frame -> idx list
+val expansion_of_arg_exn : arg_frame -> idx list
 
 val annot_expr_arg_expansion :
   (app_frame * typ) ann_expr
