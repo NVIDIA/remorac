@@ -36,12 +36,15 @@ type srt = B.srt with sexp
 
 type typ =
 | TBase
+| TVar
 | TUnknown
 | TFun of (typ list * typ)
 | TDProd of ((var * srt) list * typ)
 | TDSum of ((var * srt) list * typ)
 | TArray of (idx * typ)
 with sexp
+
+val shape_of_typ : typ -> idx list option
 
 type ('self_t, 'elt_t) expr_form =
 | App of ('self_t * 'self_t list * typ)
@@ -117,3 +120,8 @@ val fix_expr_app_type : typ ann_expr -> typ ann_expr
 val fix_elt_app_type : typ ann_elt -> typ ann_elt
 val fix_defn_app_type : typ ann_defn -> typ ann_defn
 val fix_prog_app_type : typ ann_prog -> typ ann_prog
+
+val annot_of_expr : 'annot ann_expr -> 'annot
+val annot_of_elt : 'annot ann_elt -> 'annot
+val annot_of_defn : 'annot ann_defn -> 'annot
+val annot_of_prog : 'annot ann_prog -> 'annot

@@ -29,6 +29,7 @@
 (* AST for the type-erased version of Remora *)
 
 open Core.Std
+open Core.Option.Monad_infix
 module B = Basic_ast;;
 
 type var = B.var with sexp
@@ -36,6 +37,11 @@ type var = B.var with sexp
 type idx = B.idx with sexp
 
 type srt = B.srt with sexp
+
+(* TODO: This TUnknown thing seems wrong. If a type cannot be picked, it should
+   probably just be None, and we should use typ option if we may be unable to
+   pick a particular type. Conversion from a basic AST will require type
+   annotations (not just frame annotations). *)
 
 (* Type information is reduced down to only what is used by the dynamic
    semantics. Universal types are replaced by their bodies. Base types carry no
@@ -45,6 +51,8 @@ type srt = B.srt with sexp
    refer to. *)
 type typ =
 | TBase
+(* Variables must represent array types (of indeterminate shape). *)
+| TVar
 | TUnknown
 | TFun of (typ list * typ)
 | TDProd of ((var * srt) list * typ)
@@ -54,12 +62,20 @@ with sexp
 let rec of_typ (t: B.typ) : typ =
   match t with
   | B.TFloat | B.TInt | B.TBool -> TBase
-  | B.TVar _ -> TUnknown
+  | B.TVar _ -> TVar
   | B.TDProd (bindings, body) -> TDProd (bindings, of_typ body)
   | B.TDSum (bindings, body) -> TDSum (bindings, of_typ body)
   | B.TFun (args, ret) -> TFun (List.map ~f:of_typ args, of_typ ret)
   | B.TAll (_, body) -> of_typ body
   | B.TArray (shp, elt) -> TArray (shp, of_typ elt)
+
+let rec shape_of_typ (t: typ) =
+  match t with
+  | TArray (s, t) ->
+    Typechecker.expand_shape s >>= fun s_ ->
+    shape_of_typ t >>= fun t_ ->
+    List.append s_ t_ |> Option.return
+  | _ -> None
 
 (* TODO: It may be better to just roll the annotation field into this structure
    instead of delaying the recursion and adding it there.
@@ -224,3 +240,9 @@ let fix_defn_app_type (AnnEDefn (n, t, v): typ ann_defn) : typ ann_defn =
   AnnEDefn (n, t, fix_expr_app_type v)
 let fix_prog_app_type (AnnEProg (t, defns, expr): typ ann_prog) : typ ann_prog =
   AnnEProg (t, List.map ~f:fix_defn_app_type defns, fix_expr_app_type expr)
+
+(* Extract the top annotation from an AST. *)
+let annot_of_expr ((AnnEExpr (annot, _)): 'a ann_expr) : 'a = annot
+let annot_of_elt ((AnnEElt (annot, _)): 'a ann_elt) : 'a = annot
+let annot_of_defn ((AnnEDefn (_, _, AnnEExpr (annot, _))): 'a ann_defn) : 'a = annot
+let annot_of_prog ((AnnEProg (annot, _, _)): 'a ann_prog) : 'a = annot

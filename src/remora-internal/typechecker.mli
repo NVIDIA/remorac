@@ -40,6 +40,8 @@ val kind_of_typ : srt env -> kind env -> typ -> kind option
 
 val uniq_typ : typ list -> typ option
 
+val expand_shape : idx -> idx list option
+
 val shape_of_typ : typ -> idx list option
 val elt_of_typ : typ -> typ option
 
