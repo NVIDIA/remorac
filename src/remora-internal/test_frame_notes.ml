@@ -64,32 +64,45 @@ let typed_lifted_curried_addition =
                                    TFun ([TArray (IShape [], TInt)],
                                          TArray (IShape [], TInt)))))]
         |> well_typed_of_expr)
-let vec_2 = AnnRExpr (ArgFrame [IShape [INat 2]],
+let vec_2 = AnnRExpr (ArgFrame {frame = [IShape [INat 2]];
+                                expansion = []},
                       Arr ([2], [AnnRElt (NotArg, Int 10);
                                  AnnRElt (NotArg, Int 20)]))
 let mat_2_3 =
-  AnnRExpr (ArgFrame [IShape [INat 2]; IShape [INat 3]],
+  AnnRExpr (ArgFrame {frame = [IShape [INat 2]; IShape [INat 3]];
+                      expansion = []},
             Arr ([2; 3],
                  [AnnRElt (NotArg, Int 1); AnnRElt (NotArg, Int 2);
                   AnnRElt (NotArg, Int 3); AnnRElt (NotArg, Int 4);
                   AnnRElt (NotArg, Int 5); AnnRElt (NotArg, Int 6)]))
 let annotated_expr =
   AnnRExpr (NotArg,
-            App (AnnRExpr (ArgFrame [IShape [INat 2]],
-                           App (AnnRExpr (ArgFrame [IShape []],
+            App (AnnRExpr (ArgFrame
+                             {frame = [IShape [INat 2]];
+                              expansion = [IShape [INat 3]]},
+                           App (AnnRExpr (ArgFrame {frame = [IShape []];
+                                                    expansion = [IShape [INat 2]]},
                                           Var "c+"),
                                 [vec_2])),
                  [mat_2_3]))
 
-module Test_annot_expr_arg_frame : sig
+module Test_annot_expr_arg_expansion : sig
   val tests: U.test
 end = struct
   open Test_basic_ast
-  open Typechecker
+  let expr_arg_notes base target =
+    let app = annot_expr_app_frame base in
+    let app_typ_ = (Annotation.annot_expr_merge Tuple2.create app base) in
+    let app_typ = match app_typ_ with
+        | Some x -> x
+        | None -> U.assert_failure "+----\n+ could not merge app/typ\n+-----\n" in
+    let arg = annot_expr_arg_expansion
+      ~outer_frame:NotApp
+      ~outer_expectation:None
+      app_typ in
+    U.assert_equal arg target
   let test_1 _ =
-    U.assert_equal
-      (annot_expr_arg_frame ~outer_expectation:None typed_lifted_curried_addition)
-      annotated_expr
+    expr_arg_notes typed_lifted_curried_addition annotated_expr
   let tests =
     let open OUnit2 in
     "add argument frame shape annotation">:::
@@ -113,9 +126,18 @@ end = struct
                                       TArray (IShape [], TInt)))])
             |> well_typed_of_prog) in
     let app_expr = AnnRExpr (NotArg,
-                             App (AnnRExpr (ArgFrame [IShape []], Var "+"),
-                                  [AnnRExpr (ArgFrame [IShape []], Var "x");
-                                   AnnRExpr (ArgFrame [IShape []], Var "y")])) in
+                             App (AnnRExpr (ArgFrame
+                                              {frame = [IShape []];
+                                               expansion = []},
+                                            Var "+"),
+                                  [AnnRExpr (ArgFrame
+                                               {frame = [IShape []];
+                                                expansion = []},
+                                             Var "x");
+                                   AnnRExpr (ArgFrame
+                                               {frame = [IShape []];
+                                                expansion = []},
+                                             Var "y")])) in
     let inner_fun =
       AnnRExpr (NotArg,
                 Arr ([], [AnnRElt (NotArg,
@@ -137,7 +159,12 @@ end = struct
     let annotated_defn =
       AnnRDefn ("c+", curried_add_type, annotated_curried_add) in
     U.assert_equal
-      (annot_prog_arg_frame typed_curried_addition)
+      (annot_prog_arg_expansion
+         (Option.value_exn
+            (Annotation.annot_prog_merge
+               Tuple2.create
+               (annot_prog_app_frame typed_curried_addition)
+               typed_curried_addition)))
       (AnnRProg
          (NotArg,
           [annotated_defn],
@@ -155,6 +182,6 @@ end = struct
     let open OUnit2 in
     "frame notes tests">:::
       [Test_annot_expr_app_frame.tests;
-       Test_annot_expr_arg_frame.tests;
+       Test_annot_expr_arg_expansion.tests;
        Test_annot_prog_arg_frame.tests]
 end

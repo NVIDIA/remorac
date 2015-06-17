@@ -42,6 +42,8 @@ val uniq_typ : typ list -> typ option
 
 val expand_shape : idx -> idx list option
 
+val shape_drop : idx list -> idx list -> idx list option
+
 val shape_of_typ : typ -> idx list option
 val elt_of_typ : typ -> typ option
 

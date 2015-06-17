@@ -40,9 +40,10 @@ let app_frame_of_option = function
   | Some dims -> AppFrame dims | None -> NotApp
 let option_of_app_frame = function
   | AppFrame dims -> Some dims | NotApp -> None
-let idxs_of_app_frame_exn = function
+let idxs_of_app_frame_exn e = match e with
   | AppFrame idxs -> idxs
-  | _ -> raise (Failure "Not an App form")
+  | _ -> raise (Failure ((e |> sexp_of_app_frame |> string_of_sexp)
+                         ^ "is not an App form"))
 
 (* Annotate an AST with the frame shape of each application form. *)
 let rec annot_expr_app_frame
@@ -119,9 +120,7 @@ let rec annot_expr_arg_expansion
     (option_of_app_frame outer_frame >>= fun outer_frame_shape ->
      outer_expectation >>= fun outer_t ->
      frame_contribution outer_t node_type >>= fun my_frame ->
-     frame_contribution
-       (typ_of_shape TInt my_frame)
-       (typ_of_shape TInt outer_frame_shape) >>= fun missing_dims ->
+     shape_drop my_frame outer_frame_shape >>= fun missing_dims ->
      Option.return (ArgFrame {expansion = missing_dims; frame = my_frame}))
         |> (Option.value ~default:NotArg) in
   match expr with

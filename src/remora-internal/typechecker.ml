@@ -250,6 +250,17 @@ let typ_of_shape (cell: typ) (shp: idx list) : typ =
 let canonical_typ_of_shape (cell: typ) (shp: idx list) : typ option =
   canonicalize_typ (typ_of_shape cell shp)
 
+(* Remove a specified prefix from a shape, returning None if the shape
+   does not have that prefix. *)
+let shape_drop prefix full =
+  typ_of_shape TInt prefix |> shape_of_typ >>= fun prefix_ ->
+  typ_of_shape TInt full |> shape_of_typ >>= fun full_ ->
+  let len = List.length prefix_ in
+  Option.some_if
+    ((len <= List.length full_)
+     && (List.take prefix_ len = List.take full_ len))
+    (List.drop full_ len)
+
 (* Some true if xs is a prefix of ys, Some false if ys is a prefix of xs,
    otherwise, None. *)
 let rec prefix_of (xs: 'a list) (ys: 'a list) : bool option =
