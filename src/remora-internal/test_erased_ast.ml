@@ -109,14 +109,14 @@ EDefn ("compose",
           TArray (B.IShape [],
                   TFun
                     ([(TArray (B.IShape [],
-                               TFun ([TArray (B.IVar "s1", TUnknown)],
-                                     TArray (B.IVar "s2", TUnknown))));
+                               TFun ([TArray (B.IVar "s1", TVar)],
+                                     TArray (B.IVar "s2", TVar))));
                       (TArray (B.IShape [],
-                               TFun ([TArray (B.IVar "s2", TUnknown)],
-                                     TArray (B.IVar "s3", TUnknown))))],
+                               TFun ([TArray (B.IVar "s2", TVar)],
+                                     TArray (B.IVar "s3", TVar))))],
                      TArray (B.IShape [],
-                             TFun ([TArray (B.IVar "s1", TUnknown)],
-                                   TArray (B.IVar "s3", TUnknown)))))),
+                             TFun ([TArray (B.IVar "s1", TVar)],
+                                   TArray (B.IVar "s3", TVar)))))),
        remora_compose)
 
 let use_compose =
