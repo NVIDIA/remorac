@@ -583,3 +583,34 @@ let well_typed_of_prog (prog: typ option ann_prog) : typ ann_prog option =
   List.map ~f:well_typed_of_defn defns |> Option.all >>= fun ds ->
   well_typed_of_expr expr >>= fun e ->
   AnnRProg (a, ds, e) |> return
+
+module Passes : sig
+  val prog : 'a ann_prog -> typ ann_prog option
+  val defn : 'a ann_defn -> typ ann_defn option
+  val expr : 'a ann_expr -> typ ann_expr option
+  val elt : 'a ann_elt -> typ ann_elt option
+
+  val prog_all : rem_prog -> typ ann_prog option
+  val defn_all : rem_defn -> typ ann_defn option
+  val expr_all : rem_expr -> typ ann_expr option
+  val elt_all : rem_elt -> typ ann_elt option
+end = struct
+  (* Use these for info about primitives/builtin library stuff. *)
+  let lib_idxs = []
+  let lib_typs = []
+  let lib_vars = []
+  let prog remora = remora
+    |> annot_prog_type lib_idxs lib_typs lib_vars |> well_typed_of_prog
+  let prog_all remora = remora
+    |> Basic_ast.Passes.prog_all |> prog
+  let defn remora = remora
+    |> annot_defn_type lib_idxs lib_typs lib_vars |> well_typed_of_defn
+  let defn_all remora = remora
+    |> Basic_ast.Passes.defn_all |> defn
+  let expr remora = remora
+    |> annot_expr_type lib_idxs lib_typs lib_vars |> well_typed_of_expr
+  let expr_all remora = remora |> Basic_ast.Passes.expr_all |> expr
+  let elt remora = remora
+    |> annot_elt_type lib_idxs lib_typs lib_vars |> well_typed_of_elt
+  let elt_all remora = remora |> Basic_ast.Passes.elt_all |> elt
+end

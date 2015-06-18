@@ -70,8 +70,14 @@ val well_typed_of_elt : typ option ann_elt -> typ ann_elt option
 val well_typed_of_defn: typ option ann_defn -> typ ann_defn option
 val well_typed_of_prog : typ option ann_prog -> typ ann_prog option
 
+module Passes : sig
+  val prog : 'a ann_prog -> typ ann_prog option
+  val defn : 'a ann_defn -> typ ann_defn option
+  val expr : 'a ann_expr -> typ ann_expr option
+  val elt : 'a ann_elt -> typ ann_elt option
 
-(*
-val type_of_elt :
-  srt env -> kind env -> typ env -> rem_elt -> typ option
-*)
+  val prog_all : rem_prog -> typ ann_prog option
+  val defn_all : rem_defn -> typ ann_defn option
+  val expr_all : rem_expr -> typ ann_expr option
+  val elt_all : rem_elt -> typ ann_elt option
+end

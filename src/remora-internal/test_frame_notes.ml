@@ -37,9 +37,7 @@ end = struct
   let test_1 _ =
     U.assert_equal
       ((nested_to_unary_app
-           |> annot_expr_init ~init:""
-           |> annot_expr_type [][][]
-           |> well_typed_of_expr) >>= fun typed_ast ->
+           |> Typechecker.Passes.expr_all) >>= fun typed_ast ->
        (typed_ast
            |> annot_expr_app_frame
            |> annot_of_expr
