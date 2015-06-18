@@ -170,18 +170,23 @@ let rec of_erased_expr
          | E.App (fn, args, shp) ->
            let app_frame_shape = of_nested_shape (idxs_of_app_frame_exn app) in
            (* How to lift an argument into the application form's frame. *)
-           let lift (E.AnnEExpr ((my_frame, outer_frame), _) as a) =
-             let arg_frame_shape = of_nested_shape
-               (frame_of_arg_exn my_frame) in
-             AExpr ((ArgFrame {frame = idxs_of_app_frame_exn outer_frame;
+           let lift (E.AnnEExpr ((argf, appf), expr) as a) =
+             match argf with
+             | NotArg -> assert false
+             | ArgFrame {frame = fr; expansion = ex;} ->
+             let compute_old_frame = of_nested_shape fr
+             and target_frame = List.append fr ex in
+             AExpr ((ArgFrame {frame = target_frame;
                       expansion = []},
-                     outer_frame),
+                     appf),
                     Rep {arg = of_erased_expr a;
                          new_frame = app_frame_shape;
-                         old_frame = arg_frame_shape})
+                         old_frame = compute_old_frame})
            (* Identify the function array's frame. If it's scalar, everything's
               simple. If it's not, we need to replace it with a scalar. *)
            and fn_frame = frame_of_arg_exn (fst (E.annot_of_expr fn)) in
+           (* TODO: Relax this equality check to make sure we're not mapping
+              on something like [IShape []; IShape []]. *)
            if fn_frame = []
            then
              Map {frame = app_frame_shape;
@@ -189,8 +194,7 @@ let rec of_erased_expr
                   shp = of_nested_shape (Option.value
                                            ~default:[B.IShape []]
                                            (E.shape_of_typ shp));
-                  args = List.map ~f:lift args
-                 }
+                  args = List.map ~f:lift args}
            else
              defunctionalized_map
                ~frame:app_frame_shape
@@ -205,11 +209,11 @@ let rec of_erased_expr
                 elts = List.map ~f:of_erased_elt elts}
   )
 and of_erased_elt
-    (E.AnnEElt ((app, arg), e): (arg_frame * app_frame) E.ann_elt)
+    (E.AnnEElt ((arg, app), e): (arg_frame * app_frame) E.ann_elt)
     : (arg_frame * app_frame) ann_expr =
   match e with
   | E.Expr (exp) -> of_erased_expr exp
-  | _ -> AExpr ((app, arg),
+  | _ -> AExpr ((arg, app),
                 match e with
                 (* Already handled this case, so silence the
                    exhaustiveness warning for it. *)
@@ -219,3 +223,7 @@ and of_erased_elt
                 | E.Int i -> Int i
                 | E.Float f -> Float f
                 | E.Bool b -> Bool b)
+
+(* For debugging help, a pass to drop annotations. *)
+let rec annot_expr_drop (AExpr (_, e)) =
+  Expr (map_expr_form ~f:annot_expr_drop e)
