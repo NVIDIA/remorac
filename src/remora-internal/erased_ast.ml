@@ -29,7 +29,9 @@
 (* AST for the type-erased version of Remora *)
 
 open Core.Std
+open Core.Option
 open Core.Option.Monad_infix
+open Frame_notes
 module B = Basic_ast;;
 
 type var = B.var with sexp
@@ -248,3 +250,192 @@ let annot_of_elt ((AnnEElt (annot, _)): 'a ann_elt) : 'a = annot
 let annot_of_defn ((AnnEDefn (_, _, AnnEExpr (annot, _))): 'a ann_defn) : 'a
     = annot
 let annot_of_prog ((AnnEProg (annot, _, _)): 'a ann_prog) : 'a = annot
+
+(* Merge annotations on two erased ASTs. If App forms disagree about their
+   result type declaration, we use the first AST's version. *)
+let map2 ~f xs ys =
+  (try Some (List.map2_exn ~f:f xs ys) with
+  | _ -> None)
+let rec annot_expr_merge
+    (f: 'a -> 'b -> 'c)
+    (AnnEExpr (annot1, expr1): 'a ann_expr)
+    (AnnEExpr (annot2, expr2): 'b ann_expr) : 'c ann_expr option =
+  let new_annot = f annot1 annot2
+  and (new_expr: ('c ann_expr, 'c ann_elt) expr_form option) =
+    match (expr1, expr2) with
+    (* We are *not* making sure typ1 = typ2. *)
+    | (App (fn1, args1, typ1), App (fn2, args2, typ2)) ->
+      annot_expr_merge f fn1 fn2 >>= fun new_fn ->
+      map2 ~f:(annot_expr_merge f) args1 args2 >>= fun merged ->
+      Option.all merged >>= fun new_args ->
+      return (App (new_fn, new_args, typ1))
+    | (IApp (fn1, args1), IApp (fn2, args2)) ->
+      annot_expr_merge f fn1 fn2 >>= fun new_fn ->
+      Option.some_if (args1 = args2) (IApp (new_fn, args1))
+    | (ILam (bind1, body1), ILam (bind2, body2)) ->
+      if bind1 = bind2
+      then annot_expr_merge f body1 body2 >>= fun new_body ->
+      Some (ILam (bind1, new_body))
+      else None
+    | (Arr (dims1, elts1), Arr (dims2, elts2)) ->
+      if dims1 = dims2
+      then map2 ~f:(annot_elt_merge f)
+        elts1 elts2 >>= Option.all >>= fun new_elts ->
+      return (Arr (dims1, new_elts))
+      else None
+    | (Var v1 as v, Var v2) -> Option.some_if (v1 = v2) v
+    | (Pack (idxs1, value1), Pack (idxs2, value2)) ->
+      if (idxs1 = idxs2)
+      then annot_expr_merge f value1 value2 >>= fun new_expr ->
+      return (Pack (idxs1, new_expr))
+      else None
+    | (Unpack (ivars1, v1, dsum1, body1), Unpack (ivars2, v2, dsum2, body2)) ->
+      if (ivars1 = ivars2 && v1 = v2)
+      then annot_expr_merge f dsum1 dsum2 >>= fun new_dsum ->
+      annot_expr_merge f body1 body2 >>= fun new_body ->
+      return (Unpack (ivars1, v1, new_dsum, new_body))
+      else None
+    | ((App _ | IApp _ | ILam _ | Arr _ | Var _ | Pack _ | Unpack _), _) -> None
+  in
+  new_expr >>= fun valid_new_expr ->
+  return (AnnEExpr (new_annot, valid_new_expr))
+and annot_elt_merge
+    (f: 'a -> 'b -> 'c)
+    (AnnEElt (annot1, elt1): 'a ann_elt)
+    (AnnEElt (annot2, elt2): 'b ann_elt) : 'c ann_elt option =
+  let new_annot = f annot1 annot2
+  and (new_elt: ('c ann_elt, 'c ann_expr) elt_form option) =
+    match (elt1, elt2) with
+    | (Float c1 as v1, Float c2) -> Option.some_if (c1 = c2) v1
+    | (Int c1 as v1, Int c2) -> Option.some_if (c1 = c2) v1
+    | (Bool c1 as v1, Bool c2) -> Option.some_if (c1 = c2) v1
+    | (Lam (bind1, body1), Lam (bind2, body2)) ->
+      if (bind1 = bind2)
+      then annot_expr_merge f body1 body2 >>= fun new_body ->
+      return (Lam (bind1, new_body))
+      else None
+    | (Expr e1, Expr e2) ->
+      annot_expr_merge f e1 e2 >>= fun new_expr ->
+      return (Expr new_expr)
+    | ((Float _ | Int _ | Bool _ | Lam _ | Expr _), _) -> None
+  in new_elt >>= fun valid_new_elt ->
+  return (AnnEElt (new_annot, valid_new_elt))
+let annot_defn_merge
+    (f: 'a -> 'b -> 'c)
+    ((AnnEDefn (n1, t1, e1)): 'a ann_defn)
+    ((AnnEDefn (n2, t2, e2)): 'b ann_defn) : 'c ann_defn option =
+  if (n1 = n2 && t1 = t2)
+  then annot_expr_merge f e1 e2 >>= fun new_expr ->
+  return (AnnEDefn (n1, t1, new_expr))
+  else None
+let annot_prog_merge
+    (f: 'a -> 'b -> 'c)
+    ((AnnEProg (annot1, defs1, e1)): 'a ann_prog)
+    ((AnnEProg (annot2, defs2, e2)): 'b ann_prog) : 'c ann_prog option =
+  map2 ~f:(annot_defn_merge f) defs1 defs2
+    |> Option.map ~f:Option.all |> Option.join >>= fun new_defs ->
+  annot_expr_merge f e1 e2 >>= fun new_expr ->
+  return (AnnEProg (f annot1 annot2, new_defs, new_expr))
+
+(* Apply a function to every annotation in an AST. *)
+let rec annot_expr_fmap
+    ~(f: 'a -> 'b)
+    (AnnEExpr (annot, expr): 'a ann_expr) : 'b ann_expr =
+  AnnEExpr (f annot, (map_expr_form
+                        ~f_expr:(annot_expr_fmap ~f:f)
+                        ~f_elt:(annot_elt_fmap ~f:f) expr))
+and annot_elt_fmap
+    ~(f: 'a -> 'b)
+    (AnnEElt (annot, elt): 'a ann_elt) : 'b ann_elt =
+  AnnEElt (f annot, map_elt_form ~f_expr:(annot_expr_fmap ~f:f) elt)
+let annot_defn_fmap
+    ~(f: 'a -> 'b)
+    (AnnEDefn (n, t, e): 'a ann_defn) : 'b ann_defn =
+  AnnEDefn (n, t, annot_expr_fmap ~f:f e)
+let annot_prog_fmap
+    ~(f: 'a -> 'b)
+    (AnnEProg (annot, defns, expr): 'a ann_prog) : 'b ann_prog =
+  AnnEProg (f annot,
+            List.map ~f:(annot_defn_fmap ~f:f) defns,
+            annot_expr_fmap ~f:f expr)
+
+
+module Passes : sig
+  val prog :
+    (B.typ * arg_frame * app_frame) B.ann_prog
+    -> (typ * arg_frame * app_frame) ann_prog
+  val defn :
+    (B.typ * arg_frame * app_frame) B.ann_defn
+    -> (typ * arg_frame * app_frame) ann_defn
+  val expr :
+    (B.typ * arg_frame * app_frame) B.ann_expr
+    -> (typ * arg_frame * app_frame) ann_expr
+  val elt :
+    (B.typ * arg_frame * app_frame) B.ann_elt
+    -> (typ * arg_frame * app_frame) ann_elt
+
+  val prog_all : B.rem_prog -> (typ * arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (typ * arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (typ * arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (typ * arg_frame * app_frame) ann_elt option
+end = struct
+  let prog (ast : (B.typ * arg_frame * app_frame) B.ann_prog)
+      : (typ * arg_frame * app_frame) ann_prog =
+    (* Generate the type-erased structure, with wrong result type declarations
+       on the App forms. *)
+    let typ_arg_app_erased = of_ann_prog ast in
+    (* Isolate the type annotation on the AST, and translate the Basic_ast.typ
+       annotations into Erased_ast.typ annotations. *)
+    let typ_erased = annot_prog_fmap
+      (fun (t,_,_) -> of_typ t)
+      typ_arg_app_erased in
+    (* Use the type annotations to produce correct App type declarations. *)
+    let typ_fixed = fix_prog_app_type typ_erased in
+    (* Merge the version of the AST with fixed App type declarations and the
+       fully-annotated version of the AST. *)
+    Option.value_exn
+      ~message:"Failed to merge annotated and fixed-decls erased-ASTs"
+      (annot_prog_merge
+         (fun t (_,arg,app) -> (t,arg,app))
+         typ_fixed typ_arg_app_erased)
+  let prog_all ast = ast |> Frame_notes.Passes.prog_all |> Option.map ~f:prog
+
+  let defn ast =
+    let typ_arg_app_erased = of_ann_defn ast in
+    let typ_erased = annot_defn_fmap
+      (fun (t,_,_) -> of_typ t)
+      typ_arg_app_erased in
+    let typ_fixed = fix_defn_app_type typ_erased in
+    Option.value_exn
+      ~message:"Failed to merge annotated and fixed-decls erased-ASTs"
+      (annot_defn_merge
+         (fun t (_,arg,app) -> (t,arg,app))
+         typ_fixed typ_arg_app_erased)
+  let defn_all ast = ast |> Frame_notes.Passes.defn_all |> Option.map ~f:defn
+
+  let expr ast =
+    let typ_arg_app_erased = of_ann_expr ast in
+    let typ_erased = annot_expr_fmap
+      (fun (t,_,_) -> of_typ t)
+      typ_arg_app_erased in
+    let typ_fixed = fix_expr_app_type typ_erased in
+    Option.value_exn
+      ~message:"Failed to merge annotated and fixed-decls erased-ASTs"
+      (annot_expr_merge
+         (fun t (_,arg,app) -> (t,arg,app))
+         typ_fixed typ_arg_app_erased)
+  let expr_all ast = ast |> Frame_notes.Passes.expr_all |> Option.map ~f:expr
+
+  let elt ast =
+    let typ_arg_app_erased = of_ann_elt ast in
+    let typ_erased = annot_elt_fmap
+      (fun (t,_,_) -> of_typ t)
+      typ_arg_app_erased in
+    let typ_fixed = fix_elt_app_type typ_erased in
+    Option.value_exn
+      ~message:"Failed to merge annotated and fixed-decls erased-ASTs"
+      (annot_elt_merge
+         (fun t (_,arg,app) -> (t,arg,app))
+         typ_fixed typ_arg_app_erased)
+  let elt_all ast = ast |> Frame_notes.Passes.elt_all |> Option.map ~f:elt
+end

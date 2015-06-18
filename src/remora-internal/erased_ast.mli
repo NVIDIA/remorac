@@ -27,6 +27,7 @@
 (******************************************************************************)
 
 module B = Basic_ast
+open Frame_notes
 
 type var = B.var with sexp
 
@@ -125,3 +126,23 @@ val annot_of_expr : 'annot ann_expr -> 'annot
 val annot_of_elt : 'annot ann_elt -> 'annot
 val annot_of_defn : 'annot ann_defn -> 'annot
 val annot_of_prog : 'annot ann_prog -> 'annot
+
+module Passes : sig
+  val prog :
+    (B.typ * arg_frame * app_frame) B.ann_prog
+    -> (typ * arg_frame * app_frame) ann_prog
+  val defn :
+    (B.typ * arg_frame * app_frame) B.ann_defn
+    -> (typ * arg_frame * app_frame) ann_defn
+  val expr :
+    (B.typ * arg_frame * app_frame) B.ann_expr
+    -> (typ * arg_frame * app_frame) ann_expr
+  val elt :
+    (B.typ * arg_frame * app_frame) B.ann_elt
+    -> (typ * arg_frame * app_frame) ann_elt
+
+  val prog_all : B.rem_prog -> (typ * arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (typ * arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (typ * arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (typ * arg_frame * app_frame) ann_elt option
+end
