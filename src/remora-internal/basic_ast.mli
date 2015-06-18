@@ -124,3 +124,15 @@ val annot_of_expr : 'a ann_expr -> 'a
 val annot_of_elt : 'a ann_elt -> 'a
 val annot_of_defn : 'a ann_defn -> 'a
 val annot_of_prog : 'a ann_prog -> 'a
+
+module Passes : sig
+  val prog : rem_prog -> unit ann_prog
+  val defn : rem_defn -> unit ann_defn
+  val expr : rem_expr -> unit ann_expr
+  val elt : rem_elt -> unit ann_elt
+
+  val prog_all : rem_prog -> unit ann_prog
+  val defn_all : rem_defn -> unit ann_defn
+  val expr_all : rem_expr -> unit ann_expr
+  val elt_all : rem_elt -> unit ann_elt
+end

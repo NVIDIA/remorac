@@ -258,3 +258,28 @@ let annot_of_elt ((AnnRElt (annot, _)): 'a ann_elt) : 'a = annot
 let annot_of_defn ((AnnRDefn (_, _, AnnRExpr (annot, _))): 'a ann_defn) : 'a
     = annot
 let annot_of_prog ((AnnRProg (annot, _, _)): 'a ann_prog) : 'a = annot
+
+(* Collect the passes which are essential to compilation. *)
+module Passes : sig
+  val prog : rem_prog -> unit ann_prog
+  val defn : rem_defn -> unit ann_defn
+  val expr : rem_expr -> unit ann_expr
+  val elt : rem_elt -> unit ann_elt
+
+  val prog_all : rem_prog -> unit ann_prog
+  val defn_all : rem_defn -> unit ann_defn
+  val expr_all : rem_expr -> unit ann_expr
+  val elt_all : rem_elt -> unit ann_elt
+end = struct
+  let prog = annot_prog_init ~init:()
+  let prog_all = prog
+
+  let defn = annot_defn_init ~init:()
+  let defn_all = defn
+
+  let expr = annot_expr_init ~init:()
+  let expr_all = expr
+
+  let elt = annot_elt_init ~init:()
+  let elt_all = elt
+end
