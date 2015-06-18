@@ -68,3 +68,15 @@ val annot_defn_arg_expansion :
 val annot_prog_arg_expansion :
   (app_frame * typ) ann_prog
   -> arg_frame ann_prog
+
+module Passes : sig
+  val prog : typ ann_prog -> (typ * arg_frame * app_frame) ann_prog
+  val defn : typ ann_defn -> (typ * arg_frame * app_frame) ann_defn
+  val expr : typ ann_expr -> (typ * arg_frame * app_frame) ann_expr
+  val elt : typ ann_elt -> (typ * arg_frame * app_frame) ann_elt
+
+  val prog_all : rem_prog -> (typ * arg_frame * app_frame) ann_prog option
+  val defn_all : rem_defn -> (typ * arg_frame * app_frame) ann_defn option
+  val expr_all : rem_expr -> (typ * arg_frame * app_frame) ann_expr option
+  val elt_all : rem_elt -> (typ * arg_frame * app_frame) ann_elt option
+end

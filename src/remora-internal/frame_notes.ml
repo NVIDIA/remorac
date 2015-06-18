@@ -176,3 +176,80 @@ let annot_prog_arg_expansion
       expr
   and new_defns = List.map ~f:annot_defn_arg_expansion defns in
   AnnRProg (new_annot, new_defns, new_expr)
+
+module Passes : sig
+  val prog : typ ann_prog -> (typ * arg_frame * app_frame) ann_prog
+  val defn : typ ann_defn -> (typ * arg_frame * app_frame) ann_defn
+  val expr : typ ann_expr -> (typ * arg_frame * app_frame) ann_expr
+  val elt : typ ann_elt -> (typ * arg_frame * app_frame) ann_elt
+
+  val prog_all : rem_prog -> (typ * arg_frame * app_frame) ann_prog option
+  val defn_all : rem_defn -> (typ * arg_frame * app_frame) ann_defn option
+  val expr_all : rem_expr -> (typ * arg_frame * app_frame) ann_expr option
+  val elt_all : rem_elt -> (typ * arg_frame * app_frame) ann_elt option
+end = struct
+  open Annotation
+  let triple x (y, z) = (x, y, z)
+  let prog typ_ast =
+    let app_ast = annot_prog_app_frame typ_ast in
+    let app_typ_ast = Option.value_exn
+      ~message:"Failed to merge type and app-frame annotations"
+      (annot_prog_merge Tuple2.create app_ast typ_ast) in
+    let arg_ast = annot_prog_arg_expansion app_typ_ast in
+    let arg_app_ast = Option.value_exn
+      ~message:"Failed to merge app-frame and arg-expansion annotations"
+      (annot_prog_merge Tuple2.create arg_ast app_ast) in
+    Option.value_exn
+      ~message:"Failed to merge typ and app/arg annotations"
+      (annot_prog_merge triple typ_ast arg_app_ast)
+  let prog_all ast =
+    ast |> Typechecker.Passes.prog_all |> Option.map ~f:prog
+
+  let defn typ_ast =
+    let app_ast = annot_defn_app_frame typ_ast in
+    let app_typ_ast = Option.value_exn
+      ~message:"Failed to merge type and app-frame annotations"
+      (annot_defn_merge Tuple2.create app_ast typ_ast) in
+    let arg_ast = annot_defn_arg_expansion app_typ_ast in
+    let arg_app_ast = Option.value_exn
+      ~message:"Failed to merge app-frame and arg-expansion annotations"
+      (annot_defn_merge Tuple2.create arg_ast app_ast) in
+    Option.value_exn
+      ~message:"Failed to merge typ and app/arg annotations"
+      (annot_defn_merge triple typ_ast arg_app_ast)
+  let defn_all ast =
+    ast |> Typechecker.Passes.defn_all |> Option.map ~f:defn
+
+  let expr typ_ast =
+    let app_ast = annot_expr_app_frame typ_ast in
+    let app_typ_ast = Option.value_exn
+        ~message:"Failed to merge type and app-frame annotations"
+      (annot_expr_merge Tuple2.create app_ast typ_ast) in
+    let arg_ast = annot_expr_arg_expansion
+      ~outer_expectation:None
+      ~outer_frame:NotApp
+      app_typ_ast in
+    let arg_app_ast = Option.value_exn
+      ~message:"Failed to merge app-frame and arg-expansion annotations"
+      (annot_expr_merge Tuple2.create arg_ast app_ast) in
+    Option.value_exn
+      ~message:"Failed to merge typ and app/arg annotations"
+      (annot_expr_merge triple typ_ast arg_app_ast)
+  let expr_all ast =
+    ast |> Typechecker.Passes.expr_all |> Option.map ~f:expr
+
+  let elt typ_ast =
+    let app_ast = annot_elt_app_frame typ_ast in
+    let app_typ_ast = Option.value_exn
+        ~message:"Failed to merge type and app-frame annotations"
+      (annot_elt_merge Tuple2.create app_ast typ_ast) in
+    let arg_ast = annot_elt_arg_expansion app_typ_ast in
+    let arg_app_ast = Option.value_exn
+      ~message:"Failed to merge app-frame and arg-expansion annotations"
+      (annot_elt_merge Tuple2.create arg_ast app_ast) in
+    Option.value_exn
+      ~message:"Failed to merge typ and app/arg annotations"
+      (annot_elt_merge triple typ_ast arg_app_ast)
+  let elt_all ast =
+    ast |> Typechecker.Passes.elt_all |> Option.map ~f:elt
+end
