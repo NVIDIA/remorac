@@ -166,11 +166,13 @@ let rec of_erased_expr
          | E.Unpack (ivars, v, dsum, body) -> Let {vars = v :: ivars;
                                                    bound = of_erased_expr dsum;
                                                    body = of_erased_expr body}
+         (* TODO: Some call to Option.value_exn in this branch is failing. *)
          | E.App (fn, args, shp) ->
            let app_frame_shape = of_nested_shape (idxs_of_app_frame_exn app) in
            (* How to lift an argument into the application form's frame. *)
            let lift (E.AnnEExpr ((my_frame, outer_frame), _) as a) =
-             let arg_frame_shape = of_nested_shape (frame_of_arg_exn my_frame) in
+             let arg_frame_shape = of_nested_shape
+               (frame_of_arg_exn my_frame) in
              AExpr ((ArgFrame {frame = idxs_of_app_frame_exn outer_frame;
                       expansion = []},
                      outer_frame),
@@ -184,14 +186,19 @@ let rec of_erased_expr
            then
              Map {frame = app_frame_shape;
                   fn = of_erased_expr fn;
-                  shp = of_nested_shape (Option.value_exn (E.shape_of_typ shp));
+                  shp = of_nested_shape (Option.value
+                                           ~default:[B.IShape []]
+                                           (E.shape_of_typ shp));
                   args = List.map ~f:lift args
                  }
            else
              defunctionalized_map
                ~frame:app_frame_shape
                ~fn:(of_erased_expr fn)
-               ~shp:(of_nested_shape (Option.value_exn (E.shape_of_typ shp)))
+               ~shp:(of_nested_shape
+                       (Option.value
+                          ~default:[B.IShape []]
+                          (E.shape_of_typ shp)))
                ~args:(List.map ~f:lift args)
          | E.Arr (dims, elts) ->
            Vec {dims = dims;

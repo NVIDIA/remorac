@@ -80,9 +80,10 @@ let annotated_expr =
             App (AnnRExpr (ArgFrame
                              {frame = [IShape [INat 2]];
                               expansion = [IShape [INat 3]]},
-                           App (AnnRExpr (ArgFrame {frame = [IShape []];
-                                                    expansion = [IShape [INat 2]]},
-                                          Var "c+"),
+                           App (AnnRExpr
+                                  (ArgFrame {frame = [IShape []];
+                                             expansion = [IShape [INat 2]]},
+                                   Var "c+"),
                                 [vec_2])),
                  [mat_2_3]))
 
@@ -95,7 +96,8 @@ end = struct
     let app_typ_ = (Annotation.annot_expr_merge Tuple2.create app base) in
     let app_typ = match app_typ_ with
         | Some x -> x
-        | None -> U.assert_failure "+----\n+ could not merge app/typ\n+-----\n" in
+        | None -> U.assert_failure
+          "+----\n+ could not merge app/typ\n+-----\n" in
     let arg = annot_expr_arg_expansion
       ~outer_frame:NotApp
       ~outer_expectation:None

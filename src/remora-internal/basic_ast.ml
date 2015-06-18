@@ -255,5 +255,6 @@ let annot_prog_drop (prog: 'a ann_prog) : rem_prog =
 
 let annot_of_expr ((AnnRExpr (annot, _)): 'a ann_expr) : 'a = annot
 let annot_of_elt ((AnnRElt (annot, _)): 'a ann_elt) : 'a = annot
-let annot_of_defn ((AnnRDefn (_, _, AnnRExpr (annot, _))): 'a ann_defn) : 'a = annot
+let annot_of_defn ((AnnRDefn (_, _, AnnRExpr (annot, _))): 'a ann_defn) : 'a
+    = annot
 let annot_of_prog ((AnnRProg (annot, _, _)): 'a ann_prog) : 'a = annot

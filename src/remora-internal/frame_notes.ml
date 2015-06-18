@@ -43,7 +43,7 @@ let option_of_app_frame = function
 let idxs_of_app_frame_exn e = match e with
   | AppFrame idxs -> idxs
   | _ -> raise (Failure ((e |> sexp_of_app_frame |> string_of_sexp)
-                         ^ "is not an App form"))
+                         ^ " is not an App form"))
 
 (* Annotate an AST with the frame shape of each application form. *)
 let rec annot_expr_app_frame
@@ -167,7 +167,8 @@ let annot_defn_arg_expansion
     ~outer_frame:NotApp e)
 
 let annot_prog_arg_expansion
-    ((AnnRProg (annot, defns, expr)): (app_frame * typ) ann_prog) : arg_frame ann_prog =
+    ((AnnRProg (annot, defns, expr)): (app_frame * typ) ann_prog)
+    : arg_frame ann_prog =
   let (AnnRExpr (new_annot, _)) as new_expr =
     annot_expr_arg_expansion
       ~outer_expectation:None

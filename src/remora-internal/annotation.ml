@@ -98,7 +98,7 @@ and annot_expr_merge
       Option.all merged >>= fun new_elts ->
       return (Arr (dims2, new_elts))
       else None
-    | (Var v1, Var v2) -> Option.some_if (v1 = v2) (Var v1)
+    | (Var v1 as v, Var v2) -> Option.some_if (v1 = v2) v
     | (Pack (idxs1, value1, type1), Pack (idxs2, value2, type2)) ->
       if idxs1 = idxs2 && type1 = type2
       then (annot_expr_merge f value1 value2 >>= fun new_value ->
@@ -123,13 +123,15 @@ let annot_defn_merge
     (ast2: 'b ann_defn) : 'c ann_defn option =
   let (AnnRDefn (n1, t1, b1), AnnRDefn (n2, t2, b2)) = (ast1, ast2) in
   if (n1 = n2 && t1 = t2)
-  then annot_expr_merge f b1 b2 >>= fun body -> AnnRDefn (n1, t1, body) |> return
+  then annot_expr_merge f b1 b2 >>= fun body -> AnnRDefn (n1, t1, body)
+    |> return
   else None
 let annot_prog_merge
     (f: 'a -> 'b -> 'c)
     (ast1: 'a ann_prog)
     (ast2: 'b ann_prog) : 'c ann_prog option =
-  let (AnnRProg (annot1, defs1, expr1), AnnRProg (annot2, defs2, expr2)) = (ast1, ast2) in
+  let (AnnRProg (annot1, defs1, expr1), AnnRProg (annot2, defs2, expr2))
+      = (ast1, ast2) in
   map2 ~f:(annot_defn_merge f) defs1 defs2
     |> Option.map ~f:Option.all |> Option.join
   >>= fun (ds: 'c ann_defn list) ->
@@ -140,35 +142,14 @@ let annot_prog_merge
 (* Given an annotated AST, apply a function to its annotations *)
 let rec annot_elt_fmap
     ~(f: 'a -> 'b)
-    (ast: 'a ann_elt) : 'b ann_elt =
-  let AnnRElt (annot, elt) = ast in
-  let new_elt =
-    match elt with
-    | Lam (bindings, body) -> Lam (bindings, annot_expr_fmap ~f:f body)
-    | Expr e -> Expr (annot_expr_fmap ~f:f e)
-    | (Float _ | Int _ | Bool _) as other -> other
-  in AnnRElt (f annot, new_elt)
+    (AnnRElt (annot, elt): 'a ann_elt) : 'b ann_elt =
+  AnnRElt (f annot, (map_elt_form ~f_expr:(annot_expr_fmap ~f:f) elt))
 and annot_expr_fmap
     ~(f: 'a -> 'b)
-    (ast: 'a ann_expr) : 'b ann_expr =
-  let AnnRExpr (annot, expr) = ast in
-  let new_expr =
-    match expr with
-    | App (fn, args) -> App (annot_expr_fmap ~f:f fn,
-                             List.map ~f:(annot_expr_fmap ~f:f) args)
-    | TApp (fn, t_args) -> TApp (annot_expr_fmap ~f:f fn, t_args)
-    | TLam (bindings, body) -> TLam (bindings, (annot_expr_fmap ~f:f) body)
-    | IApp (fn, i_args) -> IApp (annot_expr_fmap ~f:f fn, i_args)
-    | ILam (bindings, body) -> ILam (bindings, (annot_expr_fmap ~f:f) body)
-    | Arr (dims, elts) -> Arr (dims, List.map ~f:(annot_elt_fmap ~f:f) elts)
-    | Var _ as v -> v
-    | Pack (idxs, value, type_decl) ->
-      Pack (idxs, (annot_expr_fmap ~f:f value), type_decl)
-    | Unpack (i_vars, v, dsum, body) ->
-      Unpack (i_vars, v,
-              (annot_expr_fmap ~f:f dsum),
-              (annot_expr_fmap ~f:f body))
-  in AnnRExpr (f annot, new_expr)
+    (AnnRExpr (annot, expr): 'a ann_expr) : 'b ann_expr =
+AnnRExpr (f annot, (map_expr_form
+                      ~f_expr:(annot_expr_fmap ~f:f)
+                      ~f_elt:(annot_elt_fmap ~f:f) expr))
 ;;
 
 let annot_defn_fmap

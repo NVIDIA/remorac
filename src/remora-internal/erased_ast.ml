@@ -186,8 +186,8 @@ let rec of_ann_expr
     let AnnEExpr (sub_annot, new_node) = of_ann_expr ~merge:merge body in
     AnnEExpr (merge a sub_annot, new_node)
   | B.IApp (fn, args) -> AnnEExpr (a, IApp (of_ann_expr ~merge:merge fn, args))
-  | B.ILam (bindings, body) -> AnnEExpr (a, ILam (bindings,
-                                                  of_ann_expr ~merge:merge body))
+  | B.ILam (bindings, body) ->
+    AnnEExpr (a, ILam (bindings, of_ann_expr ~merge:merge body))
   | B.Var v -> AnnEExpr (a, Var v)
   | B.Arr (dims, elts)
     -> AnnEExpr (a, Arr (dims, List.map ~f:(of_ann_elt ~merge:merge) elts))
@@ -224,7 +224,8 @@ and annot_elt_drop ((AnnEElt (_, e)): 'annot ann_elt) : erased_elt =
   EElt (map_elt_form ~f_expr:annot_expr_drop e)
 let annot_defn_drop ((AnnEDefn (n, t, v)): 'annot ann_defn) : erased_defn =
   EDefn (n, t, annot_expr_drop v)
-let annot_prog_drop ((AnnEProg (_, defns, expr)): 'annot ann_prog) : erased_prog =
+let annot_prog_drop
+    ((AnnEProg (_, defns, expr)): 'annot ann_prog) : erased_prog =
   EProg (List.map ~f:annot_defn_drop defns, annot_expr_drop expr)
 
 (* Use AST type annotations to update App forms' result type declarations. *)
@@ -244,5 +245,6 @@ let fix_prog_app_type (AnnEProg (t, defns, expr): typ ann_prog) : typ ann_prog =
 (* Extract the top annotation from an AST. *)
 let annot_of_expr ((AnnEExpr (annot, _)): 'a ann_expr) : 'a = annot
 let annot_of_elt ((AnnEElt (annot, _)): 'a ann_elt) : 'a = annot
-let annot_of_defn ((AnnEDefn (_, _, AnnEExpr (annot, _))): 'a ann_defn) : 'a = annot
+let annot_of_defn ((AnnEDefn (_, _, AnnEExpr (annot, _))): 'a ann_defn) : 'a
+    = annot
 let annot_of_prog ((AnnEProg (annot, _, _)): 'a ann_prog) : 'a = annot

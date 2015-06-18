@@ -238,7 +238,8 @@ let frame_contribution (cell_typ_: typ) (arg_typ_: typ) : idx list option =
       canonicalize_typ (TArray (IShape [], elt_type)) >>= fun elt_array ->
       if (typ_equal ct_canonical elt_array)
       then Some [shp]
-      else frame_contribution_internal cell_typ elt_type >>= fun (elt_contrib) ->
+      else frame_contribution_internal
+        cell_typ elt_type >>= fun (elt_contrib) ->
       shp :: elt_contrib |> return
     | _ -> None in
   Option.map ~f:drop_scalar_shapes
@@ -504,7 +505,8 @@ let annot_prog_type
                   annot_expr_type idxs typs
                     (env_update defn_type_env_entries vars) e))
       defns in
-  (* Gather together all of the well-formed definitions into the type environment *)
+  (* Gather together all of the well-formed definitions into the type
+     environment. *)
   let well_formed_defn_types =
     List.filter_map
       ~f:(fun (AnnRDefn (n, t_specified, AnnRExpr (t_checked, body))) ->
