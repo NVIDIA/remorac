@@ -127,6 +127,20 @@ val annot_of_elt : 'annot ann_elt -> 'annot
 val annot_of_defn : 'annot ann_defn -> 'annot
 val annot_of_prog : 'annot ann_prog -> 'annot
 
+val annot_expr_merge :
+  ('a -> 'b -> 'c) -> 'a ann_expr -> 'b ann_expr -> 'c ann_expr option
+val annot_elt_merge :
+  ('a -> 'b -> 'c) -> 'a ann_elt -> 'b ann_elt -> 'c ann_elt option
+val annot_defn_merge :
+  ('a -> 'b -> 'c) -> 'a ann_defn -> 'b ann_defn -> 'c ann_defn option
+val annot_prog_merge :
+  ('a -> 'b -> 'c) -> 'a ann_prog -> 'b ann_prog -> 'c ann_prog option
+
+val annot_expr_fmap : f:('a -> 'b) -> 'a ann_expr -> 'b ann_expr
+val annot_elt_fmap : f:('a -> 'b) -> 'a ann_elt -> 'b ann_elt
+val annot_defn_fmap : f:('a -> 'b) -> 'a ann_defn -> 'b ann_defn
+val annot_prog_fmap : f:('a -> 'b) -> 'a ann_prog -> 'b ann_prog
+
 module Passes : sig
   val prog :
     (B.typ * arg_frame * app_frame) B.ann_prog
