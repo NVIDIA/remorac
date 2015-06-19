@@ -28,6 +28,7 @@
 
 module B = Basic_ast
 module E = Erased_ast
+open Frame_notes
 
 type var = B.var with sexp
 
@@ -66,24 +67,30 @@ val op_name_plus : var
 val op_name_append : var
 
 val of_erased_idx :
-  E.idx -> (Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr
+  E.idx -> (arg_frame * app_frame) ann_expr
 
 val of_nested_shape :
-  E.idx tup_t -> (Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr
+  E.idx tup_t -> (arg_frame * app_frame) ann_expr
 
 val defunctionalized_map :
-  fn:(Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr ->
-  args:(Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr tup_t ->
-  shp:(Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr ->
-  frame:(Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr ->
-  (Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr expr_form
+  fn:(arg_frame * app_frame) ann_expr ->
+  args:(arg_frame * app_frame) ann_expr tup_t ->
+  shp:(arg_frame * app_frame) ann_expr ->
+  frame:(arg_frame * app_frame) ann_expr ->
+  (arg_frame * app_frame) ann_expr expr_form
 
 val of_erased_expr :
-  (Frame_notes.arg_frame * Frame_notes.app_frame) E.ann_expr ->
-  (Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr
+  (arg_frame * app_frame) E.ann_expr -> (arg_frame * app_frame) ann_expr
 
 val of_erased_elt :
-  (Frame_notes.arg_frame * Frame_notes.app_frame) E.ann_elt ->
-  (Frame_notes.arg_frame * Frame_notes.app_frame) ann_expr
+  (arg_frame * app_frame) E.ann_elt -> (arg_frame * app_frame) ann_expr
+
+val of_erased_defn :
+  (arg_frame * app_frame) E.ann_defn -> (arg_frame * app_frame) ann_defn
+
+val of_erased_prog :
+  (arg_frame * app_frame) E.ann_prog -> (arg_frame * app_frame) ann_prog
 
 val annot_expr_drop : 'a ann_expr -> expr
+val annot_defn_drop : 'a ann_defn -> defn
+val annot_prog_drop : 'a ann_prog -> prog

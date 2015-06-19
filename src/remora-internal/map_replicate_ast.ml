@@ -223,7 +223,19 @@ and of_erased_elt
                 | E.Int i -> Int i
                 | E.Float f -> Float f
                 | E.Bool b -> Bool b)
+let of_erased_defn
+    (E.AnnEDefn (n, _, v): (arg_frame * app_frame) E.ann_defn)
+    : (arg_frame * app_frame) ann_defn =
+  ADefn (n, of_erased_expr v)
+let of_erased_prog
+    (E.AnnEProg (annot, defns, expr): (arg_frame * app_frame) E.ann_prog)
+    : (arg_frame * app_frame) ann_prog =
+  AProg (annot, List.map ~f:(of_erased_defn) defns, of_erased_expr expr)
 
 (* For debugging help, a pass to drop annotations. *)
 let rec annot_expr_drop (AExpr (_, e)) =
   Expr (map_expr_form ~f:annot_expr_drop e)
+let rec annot_defn_drop (ADefn (n, v)) =
+  Defn (n, annot_expr_drop v)
+let rec annot_prog_drop (AProg (_, defns, e)) =
+  Prog (List.map ~f:annot_defn_drop defns, annot_expr_drop e)
