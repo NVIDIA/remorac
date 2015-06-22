@@ -529,47 +529,26 @@ let annot_prog_type
 
 (* Convert a "maybe well-typed" AST into either Some typ ann_<tree> or None.
    typ option ann_expr/elt -> typ ann_expr/elt option *)
-let rec well_typed_of_expr (expr: typ option ann_expr) : typ ann_expr option =
-  let AnnRExpr (annot, body) = expr in
+let rec well_typed_of_expr (AnnRExpr (annot, body): typ option ann_expr)
+    : typ ann_expr option =
   annot >>= fun t ->
-  (* If the expr isn't well-typed, just return None *)
-  (match body with
-  | App (fn, args) ->
-    well_typed_of_expr fn >>= fun f ->
-    List.map ~f:well_typed_of_expr args |> Option.all >>= fun a ->
-    App (f, a) |> return
-  | TApp (fn, t_args) ->
-    well_typed_of_expr fn >>= fun f -> TApp (f, t_args) |> return
-  | TLam (t_vars, body) ->
-    well_typed_of_expr body >>= fun b -> TLam (t_vars, b) |> return
-  | IApp (fn, i_args) ->
-    well_typed_of_expr fn >>= fun f -> IApp (f, i_args) |> return
-  | ILam (i_vars, body) ->
-    well_typed_of_expr body >>= fun b -> ILam (i_vars, b) |> return
-  | Arr (dims, elts) ->
-    List.map ~f:well_typed_of_elt elts |> Option.all >>= fun l ->
-    Arr (dims, l) |> return
-  | Var _ as v -> return v
-  | Pack (idxs, value, t) ->
-    well_typed_of_expr value >>= fun v -> Pack (idxs, v, t) |> return
-  | Unpack (i_vars, v, dsum, body) ->
-    well_typed_of_expr dsum >>= fun d ->
-    well_typed_of_expr body >>= fun b ->
-    Unpack (i_vars, v, d, b) |> return
-  ) >>= fun e -> AnnRExpr (t, e) |> return
-and well_typed_of_elt (elt: typ option ann_elt) : typ ann_elt option =
-  let AnnRElt (annot, body) = elt in
+  (* Convert all subterms to typ ann_* option. *)
+  let subtree = map_expr_form
+    ~f_expr:well_typed_of_expr ~f_elt:well_typed_of_elt body in
+  (* If any subterms are None, this term must become None. Otherwise, build
+     this term up from the extracted (non-option) subterms. *)
+  (try Some (map_expr_form
+               ~f_expr:(fun x -> Option.value_exn x)
+               ~f_elt:(fun x -> Option.value_exn x) subtree)
+   with | _ -> None) >>= fun new_body ->
+  AnnRExpr (t, new_body) |> return
+and well_typed_of_elt (AnnRElt (annot, body): typ option ann_elt)
+    : typ ann_elt option =
   annot >>= fun t ->
-  (match body with
-  | Float _ as f -> return f
-  | Int _ as i -> return i
-  | Bool _ as b -> return b
-  | Lam (args, body) ->
-    well_typed_of_expr body >>= fun b ->
-    Lam (args, b) |> return
-  | Expr expr ->
-    well_typed_of_expr expr >>= fun e -> Expr e |> return
-  ) >>= fun l -> AnnRElt (t, l) |> return
+  let subtree = map_elt_form ~f_expr:well_typed_of_expr body in
+  (try Some (map_elt_form ~f_expr:(fun x -> Option.value_exn x) subtree)
+   with | _ -> None) >>= fun new_body ->
+  AnnRElt (t, new_body) |> return
 ;;
 
 let well_typed_of_defn (defn: typ option ann_defn) : typ ann_defn option =
