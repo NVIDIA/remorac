@@ -49,6 +49,8 @@ val elt_of_typ : typ -> typ option
 
 val canonicalize_typ : typ -> typ option
 
+val prefix_of : 'a list -> 'a list -> bool option
+
 val typ_equal : typ -> typ -> bool
 
 val frame_contribution  : typ -> typ -> idx list option

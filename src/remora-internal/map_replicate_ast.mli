@@ -54,6 +54,8 @@ type 'a expr_form =
   | Bool of bool
 with sexp
 
+val map_expr_form : f:('a -> 'b) -> 'a expr_form -> 'b expr_form
+
 type expr = Expr of expr expr_form with sexp
 type defn = Defn of var * expr with sexp
 type prog = Prog of defn tup_t * expr with sexp
@@ -94,3 +96,23 @@ val of_erased_prog :
 val annot_expr_drop : 'a ann_expr -> expr
 val annot_defn_drop : 'a ann_defn -> defn
 val annot_prog_drop : 'a ann_prog -> prog
+
+module Passes : sig
+  val prog :
+    (E.typ * arg_frame * app_frame) E.ann_prog
+    -> (arg_frame * app_frame) ann_prog
+  val defn :
+    (E.typ * arg_frame * app_frame) E.ann_defn
+    -> (arg_frame * app_frame) ann_defn
+  val expr :
+    (E.typ * arg_frame * app_frame) E.ann_expr
+    -> (arg_frame * app_frame) ann_expr
+  val elt :
+    (E.typ * arg_frame * app_frame) E.ann_elt
+    -> (arg_frame * app_frame) ann_expr
+
+  val prog_all : B.rem_prog -> (arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (arg_frame * app_frame) ann_expr option
+end

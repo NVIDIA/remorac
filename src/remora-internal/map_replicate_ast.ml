@@ -30,6 +30,7 @@ open Core.Std
 open Frame_notes
 module B = Basic_ast;;
 module E = Erased_ast;;
+module T = Typechecker;;
 
 type var = Basic_ast.var with sexp
 
@@ -239,3 +240,49 @@ let rec annot_defn_drop (ADefn (n, v)) =
   Defn (n, annot_expr_drop v)
 let rec annot_prog_drop (AProg (_, defns, e)) =
   Prog (List.map ~f:annot_defn_drop defns, annot_expr_drop e)
+
+module Passes : sig
+  val prog :
+    (E.typ * arg_frame * app_frame) E.ann_prog
+    -> (arg_frame * app_frame) ann_prog
+  val defn :
+    (E.typ * arg_frame * app_frame) E.ann_defn
+    -> (arg_frame * app_frame) ann_defn
+  val expr :
+    (E.typ * arg_frame * app_frame) E.ann_expr
+    -> (arg_frame * app_frame) ann_expr
+  val elt :
+    (E.typ * arg_frame * app_frame) E.ann_elt
+    -> (arg_frame * app_frame) ann_expr
+
+  val prog_all : B.rem_prog -> (arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (arg_frame * app_frame) ann_expr option
+end = struct
+  (* There doesn't seem to be a way to carry the typ component along without
+     just reworking the translation pass itself. *)
+  let prog (remora: (E.typ * arg_frame * app_frame) E.ann_prog)
+      : (arg_frame * app_frame) ann_prog =
+    remora |> E.annot_prog_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_prog
+  let prog_all (remora: B.rem_prog) : (arg_frame * app_frame) ann_prog option =
+    remora |> E.Passes.prog_all |> Option.map ~f:prog
+
+  let defn (remora: (E.typ * arg_frame * app_frame) E.ann_defn)
+      : (arg_frame * app_frame) ann_defn =
+    remora |> E.annot_defn_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_defn
+  let defn_all (remora: B.rem_defn) : (arg_frame * app_frame) ann_defn option =
+    remora |> E.Passes.defn_all |> Option.map ~f:defn
+
+  let expr (remora: (E.typ * arg_frame * app_frame) E.ann_expr)
+      : (arg_frame * app_frame) ann_expr =
+    remora |> E.annot_expr_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_expr
+  let expr_all (remora: B.rem_expr) : (arg_frame * app_frame) ann_expr option =
+    remora |> E.Passes.expr_all |> Option.map ~f:expr
+
+  let elt (remora: (E.typ * arg_frame * app_frame) E.ann_elt)
+      : (arg_frame * app_frame) ann_expr =
+    remora |> E.annot_elt_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_elt
+  let elt_all (remora: B.rem_elt) : (arg_frame * app_frame) ann_expr option =
+    remora |> E.Passes.elt_all |> Option.map ~f:elt
+end

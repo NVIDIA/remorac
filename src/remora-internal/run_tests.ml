@@ -30,6 +30,7 @@ module AST = Test_basic_ast.UnitTests;;
 module Typecheck = Test_typechecker.UnitTests;;
 module Frame_annotate = Test_frame_notes.UnitTests;;
 module Erase = Test_erased_ast.UnitTests;;
+module MapRep = Test_map_replicate_ast.UnitTests;;
 open OUnit2
 
 let () =
@@ -37,5 +38,6 @@ let () =
   run_test_tt_main Typecheck.tests;
   run_test_tt_main Frame_annotate.tests;
   run_test_tt_main Erase.tests;
+  run_test_tt_main MapRep.tests
 ;;
 
