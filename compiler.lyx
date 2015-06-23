@@ -1,0 +1,1297 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+\usepackage{amsmath, amssymb, mathpartir, plstx, stmaryrd}
+\usepackage{plstx}
+
+\newcommand\llb{\left\llbracket}
+\newcommand\rrb{\right\rrbracket}
+\newcommand{\sequence}[1]{#1 \, \dots \,}
+
+\newcommand{\arr}{\mathit{\alpha}}
+\newcommand{\base}{\mathit{b}}
+\newcommand{\basetype}{\mathit{B}}
+\newcommand{\elt}{\mathit{l}}
+\newcommand{\expr}{\mathit{e}}
+\newcommand{\fun}{\mathit{f}}
+\newcommand{\idx}{\mathit{\iota}}
+ \newcommand{\altidx}{\mathit{\kappa}}
+\newcommand{\integer}{\mathit{z}}
+\newcommand{\nat}{\mathit{n}}
+ \newcommand{\altnat}{\mathit{m}}
+ \newcommand{\altaltnat}{\mathit{k}}
+\newcommand{\op}{\mathit{\pi}}
+\newcommand{\rank}{\mathit{\rho}}
+\newcommand{\sort}{\mathit{\gamma}}
+\newcommand{\type}{\mathit{\tau}}
+\newcommand{\alttype}{\mathit{\sigma}}
+\newcommand{\val}{\mathit{v}}
+\newcommand{\var}{\mathit{x}}
+\newcommand{\altvar}{\mathit{y}}
+
+
+\newcommand{\annotate}[2][]{{#2}^{#1}}
+\newcommand{\arrlit}[2]{\left[ #1 \right]_{#2}}
+\newcommand{\app}[2]{\left( #1 \; #2 \right)}
+\newcommand{\tlam}[2]{\left( {\tt T\lambda} \left[ #1 \right] #2 \right)}
+\newcommand{\tapp}[2]{\left( \text{\tt T-APP} \; #1 \; #2 \right)}
+\newcommand{\ilam}[2]{\left( {\tt \lambda} \left[ #1 \right] #2 \right)}
+\newcommand{\iapp}[2]{\left( \text{\tt I-APP} \; #1 \; #2 \right)}
+\newcommand{\pack}[3]{\left( {\tt PACK} \; #1 #2 \;\; {\tt as} \; #3  \right)}
+\newcommand{\unpack}[4]{\left( {\tt UNPACK} \; \left( \left\langle #1 | #2 \right\rangle = #3 \right) \; #4 \right)}
+\newcommand{\lam}[2]{ \left( \lambda \; \left( #1 \right) \; #2  \right) }
+
+
+\newcommand{\typearray}[2]{{\tt A}_{#1} #2}
+\newcommand{\typefun}[2]{\left( #1 \rightarrow #2 \right)}
+\newcommand{\typeuniv}[2]{\left( \forall \left[ #1 \right] #2 \right)}
+\newcommand{\typeprod}[2]{\left( \Pi \left[ #1 \right] #2 \right)}
+\newcommand{\typesum}[2]{\left( \Sigma \left[ #1 \right] #2 \right)}
+
+\newcommand{\idxshape}[1]{\left( {\tt S} #1 \right)}
+\newcommand{\idxplus}[2]{\left( {\tt +} \; #1 \; #2 \right)}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Remora Compiler Overview
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+- compiler for array-oriented language
+\end_layout
+
+\begin_layout Standard
+-- high-level approach to data-parallelism
+\end_layout
+
+\begin_layout Standard
+-- implicit iteration space
+\end_layout
+
+\begin_layout Standard
+--- determined statically by types
+\end_layout
+
+\begin_layout Standard
+- targeting GPU via NVJIT
+\end_layout
+
+\begin_layout Standard
+-- builds on LLVM
+\end_layout
+
+\begin_layout Standard
+-- JIT decides whether to parallelize a loop on GPU
+\end_layout
+
+\begin_layout Section
+Remora Abstract Syntax
+\end_layout
+
+\begin_layout Standard
+Expressions are meant to represent arrays.
+ A separate syntax class is used to allow non-array terms (functions and
+ base values) to appear as array elements.
+ The compiler currently does not support empty array notation (it would
+ require a type declaration on the array itself).
+ In the following grammar, 
+\begin_inset Formula $\base$
+\end_inset
+
+ stands for base values (such as floats and booleans) and 
+\begin_inset Formula $\basetype$
+\end_inset
+
+ for base types.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{plstx}
+\end_layout
+
+\begin_layout Plain Layout
+
+	(expressions): 
+\backslash
+expr
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+arr
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+var
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+app{
+\backslash
+expr}{
+\backslash
+sequence{
+\backslash
+expr}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+tlam{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+tapp{
+\backslash
+expr}{
+\backslash
+sequence{
+\backslash
+type}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+ilam{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+iapp{
+\backslash
+expr}{
+\backslash
+sequence{
+\backslash
+idx}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+pack{
+\backslash
+sequence{
+\backslash
+idx}}{
+\backslash
+expr}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+unpack{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+altvar}{
+\backslash
+expr}{
+\backslash
+expr'} 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+	(arrays): 
+\backslash
+arr
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+arrlit{
+\backslash
+sequence{
+\backslash
+elt}}{
+\backslash
+sequence{
+\backslash
+nat}} 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+	(array elements): 
+\backslash
+elt
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+base
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+lam{
+\backslash
+sequence{
+\backslash
+left(
+\backslash
+var 
+\backslash
+; 
+\backslash
+type 
+\backslash
+right)}}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+expr 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+	(types): 
+\backslash
+type
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+basetype
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+var
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typearray{
+\backslash
+idx}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typefun{
+\backslash
+sequence{
+\backslash
+type}}{
+\backslash
+alttype}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typeuniv{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typeprod{
+\backslash
+sequence{
+\backslash
+left( 
+\backslash
+var 
+\backslash
+; 
+\backslash
+sort 
+\backslash
+right)}}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typesum{
+\backslash
+sequence{
+\backslash
+left( 
+\backslash
+var 
+\backslash
+; 
+\backslash
+sort 
+\backslash
+right)}}{
+\backslash
+type} 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+	(type indices): 
+\backslash
+idx
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+nat
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+var
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+idxshape{
+\backslash
+;
+\backslash
+sequence{
+\backslash
+idx}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+idxplus{
+\backslash
+idx}{
+\backslash
+altidx}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{plstx}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Within the compiler, types and type indices are defined as algebraic data
+ types:
+\begin_inset listings
+inline false
+status collapsed
+
+\begin_layout Plain Layout
+
+type idx =
+\end_layout
+
+\begin_layout Plain Layout
+
+| INat of int
+\end_layout
+
+\begin_layout Plain Layout
+
+| IShape of idx list
+\end_layout
+
+\begin_layout Plain Layout
+
+| ISum of idx * idx
+\end_layout
+
+\begin_layout Plain Layout
+
+| IVar of var
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+type typ =
+\end_layout
+
+\begin_layout Plain Layout
+
+| TFloat
+\end_layout
+
+\begin_layout Plain Layout
+
+| TInt
+\end_layout
+
+\begin_layout Plain Layout
+
+| TBool
+\end_layout
+
+\begin_layout Plain Layout
+
+| TDProd of (var * srt) list * typ
+\end_layout
+
+\begin_layout Plain Layout
+
+| TDSum of (var * srt) list * typ
+\end_layout
+
+\begin_layout Plain Layout
+
+| TFun of typ list * typ
+\end_layout
+
+\begin_layout Plain Layout
+
+| TArray of idx * typ
+\end_layout
+
+\begin_layout Plain Layout
+
+| TAll of var list * typ
+\end_layout
+
+\begin_layout Plain Layout
+
+| TVar of var 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The term-level pieces (
+\begin_inset Formula $\expr$
+\end_inset
+
+ and 
+\begin_inset Formula $\elt$
+\end_inset
+
+) are parameterized over the types of their subterms:
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status collapsed
+
+\begin_layout Plain Layout
+
+type ('self_t, 'elt_t) expr_form =
+\end_layout
+
+\begin_layout Plain Layout
+
+| App of 'self_t * 'self_t list
+\end_layout
+
+\begin_layout Plain Layout
+
+| TApp of 'self_t * typ list
+\end_layout
+
+\begin_layout Plain Layout
+
+| TLam of var list * 'self_t
+\end_layout
+
+\begin_layout Plain Layout
+
+| IApp of 'self_t * idx list
+\end_layout
+
+\begin_layout Plain Layout
+
+| ILam of (var * srt) list * 'self_t
+\end_layout
+
+\begin_layout Plain Layout
+
+| Arr of int list * 'elt_t list
+\end_layout
+
+\begin_layout Plain Layout
+
+| Var of var
+\end_layout
+
+\begin_layout Plain Layout
+
+| Pack of idx list * 'self_t * typ
+\end_layout
+
+\begin_layout Plain Layout
+
+| Unpack of var list * var * 'self_t * 'self_t
+\end_layout
+
+\begin_layout Plain Layout
+
+and ('self_t, 'expr_t) elt_form =
+\end_layout
+
+\begin_layout Plain Layout
+
+| Float of float
+\end_layout
+
+\begin_layout Plain Layout
+
+| Int of int
+\end_layout
+
+\begin_layout Plain Layout
+
+| Bool of bool
+\end_layout
+
+\begin_layout Plain Layout
+
+| Lam of (var * typ) list * 'expr_t
+\end_layout
+
+\begin_layout Plain Layout
+
+| Expr of 'expr_t
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A pair of mapping functions 
+\family typewriter
+map_expr_form
+\family default
+ and 
+\family typewriter
+map_elt_form
+\family default
+ can be used to repeat some operation on every subterm.
+ These are useful for AST traversals which only do nontrivial work at particular
+ nodes -- the noninteresting cases (such as annotating the function application
+ frame in a non-
+\family typewriter
+App
+\family default
+ node) can be skipped over.
+\end_layout
+
+\begin_layout Standard
+Delaying the recursion makes it easy to create different versions of the
+ AST.
+ First, a simple version with ordinary expressions/elements as subterms
+ can encode a source program:
+\begin_inset listings
+inline false
+status collapsed
+
+\begin_layout Plain Layout
+
+type rem_expr = RExpr of (rem_expr, rem_elt) expr_form
+\end_layout
+
+\begin_layout Plain Layout
+
+and rem_elt = RElt of (rem_elt, rem_expr) elt_form
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Another version includes an annotation at each term node:
+\begin_inset listings
+inline false
+status collapsed
+
+\begin_layout Plain Layout
+
+type 'annot ann_expr =
+\end_layout
+
+\begin_layout Plain Layout
+
+  AnnRExpr of 'annot *
+\end_layout
+
+\begin_layout Plain Layout
+
+              ('annot ann_expr, 'annot ann_elt) expr_form
+\end_layout
+
+\begin_layout Plain Layout
+
+and 'annot ann_elt =
+\end_layout
+
+\begin_layout Plain Layout
+
+  AnnRElt of 'annot *
+\end_layout
+
+\begin_layout Plain Layout
+
+             ('annot ann_elt, 'annot ann_expr) elt_form 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The ASTs are treated as persistent data structures.
+ When possible, functions which operate on them will reuse existing nodes
+ rather than allocating new ones.
+\end_layout
+
+\begin_layout Standard
+Functions are provided for converting between the two representations (either
+ removing annotations or inserting caller-designated 
+\begin_inset Quotes eld
+\end_inset
+
+blank
+\begin_inset Quotes erd
+\end_inset
+
+ annotations).
+ There are also functions which apply a given function to every annotation
+ (treating the AST like a Functor instance).
+ Another set of functions applies a specified operation to corresponding
+ pairs of annotations in two ASTs of the same shape.
+ These functions produce an 
+\family typewriter
+option
+\family default
+ AST in case the two argument ASTs do not match in shape.
+\end_layout
+
+\begin_layout Standard
+A top-level definition has a bound name, a type declaration, and an expression
+ (possibly annotated).
+ A program consists of a list of top-level definitions (which are allowed
+ to refer to each other) and an expression.
+ An annotated program includes an annotation representing the entire program,
+ but an annotated definition only has annotations within its body.
+\begin_inset listings
+inline false
+status collapsed
+
+\begin_layout Plain Layout
+
+type rem_defn = RDefn of var * typ * rem_expr
+\end_layout
+
+\begin_layout Plain Layout
+
+type rem_prog = RProg of rem_defn list * rem_expr
+\end_layout
+
+\begin_layout Plain Layout
+
+type 'annot ann_defn =
+\end_layout
+
+\begin_layout Plain Layout
+
+  AnnRDefn of var * typ * 'annot ann_expr
+\end_layout
+
+\begin_layout Plain Layout
+
+type 'annot ann_prog =
+\end_layout
+
+\begin_layout Plain Layout
+
+  AnnRProg of 'annot * 'annot ann_defn list * 'annot ann_expr 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Type checking
+\end_layout
+
+\begin_layout Standard
+The full typing rules for Remora are given in the 
+\begin_inset CommandInset href
+LatexCommand href
+name "ESOP 2014 paper"
+target "http://www.ccs.neu.edu/home/jrslepak/esop14-full.pdf"
+
+\end_inset
+
+ and implemented in the 
+\begin_inset CommandInset href
+LatexCommand href
+name "Redex model"
+target "https://github.com/jrslepak/Remora/tree/master/semantics"
+
+\end_inset
+
+.
+ The type checking pass generates 
+\family typewriter
+typ option
+\family default
+ annotations.
+ Well-typed parts of an ill-typed program's AST will have types ascribed
+ to them.
+ For example, an array containing a 2-vector and a 3-vector cannot be given
+ a type, but each of those two vectors may still be typable.
+\end_layout
+
+\begin_layout Standard
+The environment structure consists of lists mapping the current in-scope
+ index, type, and term variables to their respective sorts, kinds, and types.
+ Remora currently does not include higher-order polymorphism, so there is
+ only one kind (represented in code by the 
+\family typewriter
+unit
+\family default
+ type).
+\end_layout
+
+\begin_layout Standard
+The code makes heavy use of OCaml Core's monadic interface for 
+\family typewriter
+option
+\family default
+s.
+ This interface allows a sequence where each operation assumes all previous
+ operations have succeeded.
+ Once any operation in the sequence fails, the rest are skipped, and the
+ result is automatically 
+\family typewriter
+None
+\family default
+.
+ If all operations succeed, the final one will 
+\family typewriter
+return
+\family default
+ a value 
+\family typewriter
+v
+\family default
+, leaving 
+\family typewriter
+Some v
+\family default
+ as the result of the operation sequence.
+\end_layout
+
+\begin_layout Standard
+Each variant of term node has a corresponding case in the type checker.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+App (fn, arg ...)
+\end_layout
+
+\begin_layout Standard
+Check the types of 
+\family typewriter
+fn
+\family default
+ and each 
+\family typewriter
+arg
+\family default
+.
+ The type of 
+\family typewriter
+fn
+\family default
+ must be an array of
+\family typewriter
+ TFun (cell_typ ..., ret_typ)
+\family default
+, or in abstract syntax, 
+\begin_inset Formula $\typefun{\sequence{\tt cell\_typ}}{{\tt ret\_typ}}$
+\end_inset
+
+.
+ Comparing each cell type 
+\family typewriter
+in
+\family default
+ to the type of the corresponding 
+\family typewriter
+arg
+\family default
+ gives its 
+\family typewriter
+arg_frame_shape
+\family default
+.
+ The shape of 
+\family typewriter
+fn
+\family default
+'s type, 
+\family typewriter
+fun_shape
+\family default
+, is the frame shape for 
+\family typewriter
+fn
+\family default
+.
+ Find the largest frame shape 
+\family typewriter
+prefix_max
+\family default
+ (according to prefix ordering).
+ The result type for this application is an array with shape 
+\family typewriter
+prefix_max
+\family default
+ and element type 
+\family typewriter
+ret_typ
+\family default
+.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+TApp (fn, typ_arg ...)
+\end_layout
+
+\begin_layout Standard
+Check the type of fn (the arguments are types, which need no annotation).
+ 
+\family typewriter
+fn
+\family default
+'s type must be of the form 
+\family typewriter
+TAll (tvar..., tbody)
+\family default
+, or 
+\begin_inset Formula $\typeuniv{\sequence{\tt tvar}}{\tt {tbody}}$
+\end_inset
+
+.
+ There must be as many 
+\family typewriter
+typ_arg
+\family default
+s as there are 
+\family typewriter
+tvar
+\family default
+s, and every 
+\family typewriter
+typ_arg
+\family default
+ must be a non-array type.
+ If these conditions are met, return 
+\family typewriter
+tbody
+\family default
+ with free occurrences of 
+\family typewriter
+tvars
+\family default
+ replaced with the corresponding 
+\family typewriter
+typ_arg
+\family default
+s.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+TLam (bindings, body)
+\end_layout
+
+\begin_layout Standard
+Use an extended environment which marks the type variables in 
+\family typewriter
+bindings
+\family default
+ as in-scope to find the type 
+\family typewriter
+body_annot
+\family default
+ of 
+\family typewriter
+body
+\family default
+.
+ If 
+\family typewriter
+body
+\family default
+ is well-typed, return 
+\family typewriter
+TAll (bindings, body_type)
+\family default
+.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+IApp (fn, idx_arg ...)
+\end_layout
+
+\begin_layout Standard
+Ensure 
+\family typewriter
+fn
+\family default
+'s type has the form 
+\family typewriter
+TDProd ((ivar, s) ..., tbody)
+\family default
+, or 
+\begin_inset Formula $\typeprod{\sequence{({\tt ivar}\;{\tt s})}}{{\tt tbody}}$
+\end_inset
+
+.
+ Each idx_arg must have the corresponding sort 
+\family typewriter
+s
+\family default
+.
+ If the sorts all match, the type is 
+\family typewriter
+tbody
+\family default
+ with each 
+\family typewriter
+idx_arg
+\family default
+ substituted for its 
+\family typewriter
+ivar
+\family default
+.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+ILam (bindings, body)
+\end_layout
+
+\begin_layout Standard
+Find the type 
+\family typewriter
+body_type
+\family default
+ of 
+\family typewriter
+body
+\family default
+ using an environment extended according to 
+\family typewriter
+bindings
+\family default
+.
+ Return 
+\family typewriter
+DProd (bindings, body_type)
+\family default
+.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Arr (dim ..., elt ...)
+\end_layout
+
+\begin_layout Standard
+Check the type of each 
+\family typewriter
+elt
+\family default
+.
+ Find the product of the 
+\family typewriter
+dim
+\family default
+s, and make sure that it matches the number 
+\family typewriter
+elt
+\family default
+s.
+ If the 
+\family typewriter
+elt
+\family default
+ types are all equivalent to the same type 
+\family typewriter
+uniq_elt_type
+\family default
+, then construct a shape index 
+\family typewriter
+ashp
+\family default
+ from the declared dimensions, and return 
+\family typewriter
+TArray (array_shape, uniqt)
+\family default
+, or 
+\begin_inset Formula $\typearray{{\tt ashp}}{{\tt uniqt}}$
+\end_inset
+
+ in abstract syntax.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Pack (i ..., e, TDSum ((ivar, s) ..., t))
+\end_layout
+
+\begin_layout Standard
+Note that if the type declaration does not have this form, this expression
+ is ill-typed.
+ Otherwise, ensure each index 
+\family typewriter
+i
+\family default
+ has the corresponding declared sort 
+\family typewriter
+s
+\family default
+.
+ Substituting the indices 
+\family typewriter
+i...
+
+\family default
+ for the variables 
+\family typewriter
+ivar...
+
+\family default
+ in 
+\family typewriter
+t
+\family default
+ must produce a type equivalent to the type of 
+\family typewriter
+e
+\family default
+.
+ If so, return 
+\family typewriter
+TDSum ((ivar, s) ..., t)
+\family default
+, which is written 
+\begin_inset Formula $\typesum{\sequence{({\tt ivar}\;{\tt s})}}{{\tt t}}$
+\end_inset
+
+ in abstract syntax.
+\end_layout
+
+\begin_layout Section
+Frame annotation
+\end_layout
+
+\begin_layout Section
+Type-erased Abstract Syntax
+\end_layout
+
+\begin_layout Section
+Map/Replicate Abstract Syntax
+\end_layout
+
+\end_body
+\end_document
