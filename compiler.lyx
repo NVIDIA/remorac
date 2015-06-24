@@ -968,7 +968,7 @@ Some v
 \end_layout
 
 \begin_layout Standard
-Each variant of term node has a corresponding case in the type checker.
+Each term node variant has a corresponding case in the type checker.
 \end_layout
 
 \begin_layout Subsection*
@@ -995,7 +995,7 @@ fn
 \family typewriter
  TFun (cell_typ ..., ret_typ)
 \family default
-, or in abstract syntax, 
+, or in abstract notation, 
 \begin_inset Formula $\typefun{\sequence{\tt cell\_typ}}{{\tt ret\_typ}}$
 \end_inset
 
@@ -1230,7 +1230,7 @@ TArray (array_shape, uniqt)
 \begin_inset Formula $\typearray{{\tt ashp}}{{\tt uniqt}}$
 \end_inset
 
- in abstract syntax.
+ in abstract notation.
 \end_layout
 
 \begin_layout Subsection*
@@ -1278,7 +1278,99 @@ TDSum ((ivar, s) ..., t)
 \begin_inset Formula $\typesum{\sequence{({\tt ivar}\;{\tt s})}}{{\tt t}}$
 \end_inset
 
- in abstract syntax.
+ in abstract notation.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Unpack (ivar ..., v, dsum, body)
+\end_layout
+
+\begin_layout Standard
+Type check 
+\family typewriter
+dsum
+\family default
+, whose type must be a dependent sum 
+\family typewriter
+TDSum (witness ..., t)
+\family default
+.
+ Construct new environment entries binding each ivar at the sort of the
+ corresponding witness and v at type t.
+ Use this new environment to type check body, but make sure the resulting
+ type is well-formed 
+\emph on
+without
+\emph default
+ the new environment entries -- do not allow any witnesses to escape.
+ In the type checker's current state, this form is only useful if the bound
+ index variables have the same names as the dependent sum's witnesses.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Var name
+\end_layout
+
+\begin_layout Standard
+If the environment has name bound at any type, return that type.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Lam (bindings, body)
+\end_layout
+
+\begin_layout Standard
+Extend the environment with the 
+\family typewriter
+Lam
+\family default
+ form's new term variable bindings, and use the extended environment to
+ find 
+\family typewriter
+body
+\family default
+'s type 
+\family typewriter
+t
+\family default
+.
+ If every argument's type declaration is for a well-formed type 
+\family typewriter
+s
+\family default
+, then return 
+\family typewriter
+TFun (s ..., t)
+\family default
+, or 
+\begin_inset Formula $\typefun{\sequence{{\tt s}}}{{\tt t}}$
+\end_inset
+
+ in abstract notation.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Expr e
+\end_layout
+
+\begin_layout Standard
+For an expression 
+\family typewriter
+e
+\family default
+ used as an array element, simply return the type of 
+\family typewriter
+e
+\family default
+.
 \end_layout
 
 \begin_layout Section
