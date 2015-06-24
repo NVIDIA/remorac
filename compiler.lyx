@@ -1398,6 +1398,127 @@ e
 Frame annotation
 \end_layout
 
+\begin_layout Standard
+Type annotations supply the information needed to know how each function
+ gets mapped over its arguments and how each argument gets replicated.
+ 
+\end_layout
+
+\begin_layout Standard
+The first pass identifies the principal frame in every 
+\family typewriter
+App
+\family default
+ form.
+ Each AST node gets annotated with an 
+\family typewriter
+app_frame
+\family default
+ -- either 
+\family typewriter
+NotApp
+\family default
+ if it is not an 
+\family typewriter
+App
+\family default
+ node or 
+\family typewriter
+AppFrame ([i ...])
+\family default
+ if it is.
+ This type is isomorphic to 
+\family typewriter
+idx list option
+\family default
+, but using a separate type helps OCaml's type system enforce proper usage.
+ On an 
+\family typewriter
+App
+\family default
+ form, compare the return type for the function position (we have a well-typed
+ AST, so we know this has atoms of function type) with the type ascribed
+ to the entire 
+\family typewriter
+App
+\family default
+ form.
+ The axes added to the return type are the principal frame for the application.
+\end_layout
+
+\begin_layout Standard
+Given both type and application frame annotations, we have enough information
+ to identify the frames of individual arguments -- what frame axes they
+ already have and what axes they must gain via replication.
+ An argument frame annotation is an 
+\family typewriter
+arg_frame
+\family default
+ -- either 
+\family typewriter
+NotArg
+\family default
+ or 
+\family typewriter
+ArgFrame {frame = [i ...]; expansion = [j ...]}
+\family default
+.
+ Annotating an argument requires knowing some information about the parent
+ AST node: the expected cell type (a 
+\family typewriter
+typ option
+\family default
+) for that argument and the principal frame (an 
+\family typewriter
+app_frame
+\family default
+).
+ These are passed in as additional arguments to the argument frame annotation
+ pass.
+\end_layout
+
+\begin_layout Standard
+Every node must compute the argument frame and required expansion from the
+ passed-in data.
+ The recursive call depends on node variant.
+ On an App node, extract the expected cell types [t ...] from the 
+\family typewriter
+typ
+\family default
+ annotation at function position (this relies on having a well-typed AST)
+ and the application frame 
+\family typewriter
+node_app_frame
+\family default
+ from the 
+\family typewriter
+app_frame
+\family default
+ annotation on the 
+\family typewriter
+App
+\family default
+ form.
+ Then recur on each subterm with 
+\family typewriter
+Some t
+\family default
+ and 
+\family typewriter
+node_app_frame
+\family default
+.
+ For non-App nodes, recur with 
+\family typewriter
+None
+\family default
+ and 
+\family typewriter
+NotApp
+\family default
+.
+\end_layout
+
 \begin_layout Section
 Type-erased Abstract Syntax
 \end_layout
