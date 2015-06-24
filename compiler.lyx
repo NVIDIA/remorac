@@ -968,13 +968,35 @@ Some v
 \end_layout
 
 \begin_layout Standard
+Once an AST has 
+\family typewriter
+typ option
+\family default
+ annotations, it can be converted to either 
+\family typewriter
+Some
+\family default
+ AST with (non-option) 
+\family typewriter
+typ
+\family default
+ annotations if it is well-typed or 
+\family typewriter
+None
+\family default
+ if it is ill-typed.
+ The rest of the compiler can then assume it is working with a fully well-typed
+ program.
+\end_layout
+
+\begin_layout Standard
 Each term node variant has a corresponding case in the type checker.
 \end_layout
 
 \begin_layout Subsection*
 
 \family typewriter
-App (fn, arg ...)
+App (fn, [arg ...])
 \end_layout
 
 \begin_layout Standard
@@ -993,7 +1015,7 @@ fn
 \family default
  must be an array of
 \family typewriter
- TFun (cell_typ ..., ret_typ)
+ TFun ([cell_typ ...], ret_typ)
 \family default
 , or in abstract notation, 
 \begin_inset Formula $\typefun{\sequence{\tt cell\_typ}}{{\tt ret\_typ}}$
@@ -1045,7 +1067,7 @@ ret_typ
 \begin_layout Subsection*
 
 \family typewriter
-TApp (fn, typ_arg ...)
+TApp (fn, [typ_arg ...])
 \end_layout
 
 \begin_layout Standard
@@ -1056,7 +1078,7 @@ fn
 \family default
 's type must be of the form 
 \family typewriter
-TAll (tvar..., tbody)
+TAll ([tvar...], tbody)
 \family default
 , or 
 \begin_inset Formula $\typeuniv{\sequence{\tt tvar}}{\tt {tbody}}$
@@ -1125,7 +1147,7 @@ TAll (bindings, body_type)
 \begin_layout Subsection*
 
 \family typewriter
-IApp (fn, idx_arg ...)
+IApp (fn, [idx_arg ...])
 \end_layout
 
 \begin_layout Standard
@@ -1135,7 +1157,7 @@ fn
 \family default
 's type has the form 
 \family typewriter
-TDProd ((ivar, s) ..., tbody)
+TDProd ([(ivar, s) ...], tbody)
 \family default
 , or 
 \begin_inset Formula $\typeprod{\sequence{({\tt ivar}\;{\tt s})}}{{\tt tbody}}$
@@ -1192,7 +1214,7 @@ DProd (bindings, body_type)
 \begin_layout Subsection*
 
 \family typewriter
-Arr (dim ..., elt ...)
+Arr ([dim ...], [elt ...])
 \end_layout
 
 \begin_layout Standard
@@ -1236,7 +1258,7 @@ TArray (array_shape, uniqt)
 \begin_layout Subsection*
 
 \family typewriter
-Pack (i ..., e, TDSum ((ivar, s) ..., t))
+Pack ([i ...], e, TDSum ([(ivar, s) ...], t))
 \end_layout
 
 \begin_layout Standard
@@ -1253,8 +1275,7 @@ s
 .
  Substituting the indices 
 \family typewriter
-i...
-
+[i ...]
 \family default
  for the variables 
 \family typewriter
@@ -1272,7 +1293,7 @@ e
 .
  If so, return 
 \family typewriter
-TDSum ((ivar, s) ..., t)
+TDSum ([(ivar, s) ...], t)
 \family default
 , which is written 
 \begin_inset Formula $\typesum{\sequence{({\tt ivar}\;{\tt s})}}{{\tt t}}$
@@ -1284,7 +1305,7 @@ TDSum ((ivar, s) ..., t)
 \begin_layout Subsection*
 
 \family typewriter
-Unpack (ivar ..., v, dsum, body)
+Unpack ([ivar ...], v, dsum, body)
 \end_layout
 
 \begin_layout Standard
@@ -1294,7 +1315,7 @@ dsum
 \family default
 , whose type must be a dependent sum 
 \family typewriter
-TDSum (witness ..., t)
+TDSum ([witness ...], t)
 \family default
 .
  Construct new environment entries binding each ivar at the sort of the
@@ -1346,7 +1367,7 @@ s
 \family default
 , then return 
 \family typewriter
-TFun (s ..., t)
+TFun ([s ...], t)
 \family default
 , or 
 \begin_inset Formula $\typefun{\sequence{{\tt s}}}{{\tt t}}$
