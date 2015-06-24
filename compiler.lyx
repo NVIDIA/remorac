@@ -147,6 +147,26 @@ Introduction
 -- JIT decides whether to parallelize a loop on GPU
 \end_layout
 
+\begin_layout Standard
+- export Passes module for each 
+\begin_inset Quotes eld
+\end_inset
+
+phase
+\begin_inset Quotes erd
+\end_inset
+
+ of compilation
+\end_layout
+
+\begin_layout Standard
+-- procedures which execute just this phase's passes
+\end_layout
+
+\begin_layout Standard
+-- procedures which execute this and all previous phases' passes
+\end_layout
+
 \begin_layout Section
 Remora Abstract Syntax
 \end_layout
