@@ -4,8 +4,7 @@
 \begin_header
 \textclass article
 \begin_preamble
-\usepackage{amsmath, amssymb, mathpartir, plstx, stmaryrd}
-\usepackage{plstx}
+\usepackage{amsmath, amssymb, mathpartir, minibox, plstx, stmaryrd}
 
 \newcommand\llb{\left\llbracket}
 \newcommand\rrb{\right\rrbracket}
@@ -38,7 +37,7 @@
 \newcommand{\app}[2]{\left( #1 \; #2 \right)}
 \newcommand{\tlam}[2]{\left( {\tt T\lambda} \left[ #1 \right] #2 \right)}
 \newcommand{\tapp}[2]{\left( \text{\tt T-APP} \; #1 \; #2 \right)}
-\newcommand{\ilam}[2]{\left( {\tt \lambda} \left[ #1 \right] #2 \right)}
+\newcommand{\ilam}[2]{\left( {\tt I\lambda} \left[ #1 \right] #2 \right)}
 \newcommand{\iapp}[2]{\left( \text{\tt I-APP} \; #1 \; #2 \right)}
 \newcommand{\pack}[3]{\left( {\tt PACK} \; #1 #2 \;\; {\tt as} \; #3  \right)}
 \newcommand{\unpack}[4]{\left( {\tt UNPACK} \; \left( \left\langle #1 | #2 \right\rangle = #3 \right) \; #4 \right)}
@@ -53,6 +52,33 @@
 
 \newcommand{\idxshape}[1]{\left( {\tt S} #1 \right)}
 \newcommand{\idxplus}[2]{\left( {\tt +} \; #1 \; #2 \right)}
+
+\newcommand{\erasedapp}[3]{\left( #1 \; #2 \; | \; #3 \right)}
+\newcommand{\erasedpack}[2]{\left( {\tt PACK} \; #1 #2  \right)}
+
+\newcommand{\erasedbasetype}{\tt Base}
+\newcommand{\erasedvartype}{\tt Var}
+
+\newcommand{\mrtuple}[1]{\left \langle #1 \right \rangle}
+\newcommand{\mrlet}[3]{\left( {\tt LET} \; \mrtuple{#1} \; {\tt =} \; #2 \; {\tt in} \; #3 \right)}
+\newcommand{\mrletbr}[3]{\minibox {$ \left( {\tt LET} \; \mrtuple{#1} \; {\tt =} \; #2 \right. $ \\ $ \left. \qquad {\tt in} \; #3 \right) $}}
+\newcommand{\mrvec}[2]{\left( {\tt VEC} \; #2 \; | \; #1 \right)}
+\newcommand{\mrrep}[3]{\left( {\tt REP} \; #1 \; #2 \Rightarrow \; #3 \right)}
+\newcommand{\mrmap}[4]{\left(  {\tt MAP} \; #1\; #2 \; #3 \; | \; #4 \right) }
+\newcommand{\mrmapbr}[4]{\minibox{$\left( {\tt MAP} #1 \right. $ \\ $ \qquad #2 $ \\ $ \qquad #3 $ \\ $ \left. \qquad #4 \right)$}}
+\newcommand{\applyfun}[2]{\lam{#1 \; #2}{\app{#1}{#2}}}
+
+\newcommand{\eraseE}[1]{\llb #1 \rrb _E}
+\newcommand{\eraseL}[1]{\llb #1 \rrb _L}
+\newcommand{\eraseT}[1]{\llb #1 \rrb _T}
+\newcommand{\eraseI}[1]{\llb #1 \rrb _I}
+\newcommand{\eraseA}[1]{\llb #1 \rrb _A}
+
+\newcommand{\mangle}[1]{\left( \mathit{Mangle}\llb #1 \rrb \right)}
+\newcommand{\length}[1]{\left( \mathit{Length}\llb #1 \rrb \right)}
+\newcommand{\appframe}[1]{\left( \mathit{AppFrame}\llb #1 \rrb \right)}
+\newcommand{\argframe}[1]{\left( \mathit{ArgFrame}\llb #1 \rrb \right)}
+\newcommand{\expansion}[1]{\left( \mathit{Expansion}\llb #1 \rrb \right)}
 \end_preamble
 \use_default_options true
 \maintain_unincluded_children false
@@ -189,8 +215,11 @@ Expressions are meant to represent arrays.
 \end_layout
 
 \begin_layout Standard
+\begin_inset Preview
+
+\begin_layout Standard
 \begin_inset ERT
-status collapsed
+status open
 
 \begin_layout Plain Layout
 
@@ -397,7 +426,9 @@ expr
 
 	(types): 
 \backslash
-type
+type, 
+\backslash
+alttype
 \end_layout
 
 \begin_layout Plain Layout
@@ -501,7 +532,9 @@ type}
 
 	(type indices): 
 \backslash
-idx
+idx, 
+\backslash
+altidx
 \end_layout
 
 \begin_layout Plain Layout
@@ -556,6 +589,11 @@ altidx}
 
 \backslash
 end{plstx}
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -1038,7 +1076,7 @@ fn
  TFun ([cell_typ ...], ret_typ)
 \family default
 , or in abstract notation, 
-\begin_inset Formula $\typefun{\sequence{\tt cell\_typ}}{{\tt ret\_typ}}$
+\begin_inset Formula $\typefun{\sequence{\tt cell\_typ}}{\tt ret\_typ}$
 \end_inset
 
 .
@@ -1180,7 +1218,7 @@ fn
 TDProd ([(ivar, s) ...], tbody)
 \family default
 , or 
-\begin_inset Formula $\typeprod{\sequence{({\tt ivar}\;{\tt s})}}{{\tt tbody}}$
+\begin_inset Formula $\typeprod{\sequence{({\tt ivar}\;{\tt s})}}{\tt tbody}$
 \end_inset
 
 .
@@ -1269,7 +1307,7 @@ ashp
 TArray (array_shape, uniqt)
 \family default
 , or 
-\begin_inset Formula $\typearray{{\tt ashp}}{{\tt uniqt}}$
+\begin_inset Formula $\typearray{\tt ashp}{\tt uniqt}$
 \end_inset
 
  in abstract notation.
@@ -1316,7 +1354,7 @@ e
 TDSum ([(ivar, s) ...], t)
 \family default
 , which is written 
-\begin_inset Formula $\typesum{\sequence{({\tt ivar}\;{\tt s})}}{{\tt t}}$
+\begin_inset Formula $\typesum{\sequence{({\tt ivar}\;{\tt s})}}{\tt t}$
 \end_inset
 
  in abstract notation.
@@ -1390,7 +1428,7 @@ s
 TFun ([s ...], t)
 \family default
 , or 
-\begin_inset Formula $\typefun{\sequence{{\tt s}}}{{\tt t}}$
+\begin_inset Formula $\typefun{\sequence{\tt s}}{\tt t}$
 \end_inset
 
  in abstract notation.
@@ -1543,8 +1581,791 @@ NotApp
 Type-erased Abstract Syntax
 \end_layout
 
+\begin_layout Standard
+The only part of Remora's dynamic semantics that requires type information
+ is choosing the result of a function application with an empty frame.
+ The formal presentation of the semantics has a type annotation on every
+ term (these can be constructed from partial annotations) and reduces an
+ empty-frame application form to the unique inhabitant of that form's type
+ (there is, for example, only one empty vector of Booleans).
+ This type information is only needed to select the 
+\emph on
+shape
+\emph default
+ of the result array, so only the shape-related portion of a type is computation
+ally relevant.
+ The type of the atoms in an array does not matter.
+\end_layout
+
+\begin_layout Standard
+To avoid looking up types at run time, we use an application form with a
+ shape declaration, which will be used to handle lifting in an empty frame.
+ This declaration may use index variables, so ILam, IApp, Pack, and Unpack
+ forms still matter.
+ We can drop TLam and TApp forms and replace all type variables with an
+ 
+\begin_inset Quotes eld
+\end_inset
+
+unknown atom type
+\begin_inset Quotes erd
+\end_inset
+
+ marker (recall, type variables are not allowed to stand for array types).
+\end_layout
+
+\begin_layout Standard
+The target syntax of this pass is:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Preview
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{plstx}
+\end_layout
+
+\begin_layout Plain Layout
+
+(expressions): 
+\backslash
+expr
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+erasedapp{
+\backslash
+expr}{
+\backslash
+sequence{
+\backslash
+expr}}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+arrlit{
+\backslash
+sequence{
+\backslash
+elt}}{
+\backslash
+sequence{
+\backslash
+nat}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+iapp{
+\backslash
+expr}{
+\backslash
+sequence{
+\backslash
+idx}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+ilam{
+\backslash
+sequence{
+\backslash
+left(
+\backslash
+var 
+\backslash
+; 
+\backslash
+sort 
+\backslash
+right)}}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+var
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+erasedpack{
+\backslash
+sequence{
+\backslash
+idx}}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+unpack{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+altvar}{
+\backslash
+expr}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+(array elements): 
+\backslash
+elt
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+base
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+lam{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+expr
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+(types): 
+\backslash
+type, 
+\backslash
+alttype
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+erasedbasetype
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+erasedvartype
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typefun{
+\backslash
+sequence{
+\backslash
+type}}{
+\backslash
+alttype}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typeprod{
+\backslash
+sequence{
+\backslash
+left( 
+\backslash
+var 
+\backslash
+; 
+\backslash
+sort 
+\backslash
+right)}}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typesum{
+\backslash
+sequence{
+\backslash
+left( 
+\backslash
+var 
+\backslash
+; 
+\backslash
+sort 
+\backslash
+right)}}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typearray{
+\backslash
+idx}{
+\backslash
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+	(type indices): 
+\backslash
+idx, 
+\backslash
+altidx
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+nat
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+var
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+idxshape{
+\backslash
+;
+\backslash
+sequence{
+\backslash
+idx}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+idxplus{
+\backslash
+idx}{
+\backslash
+altidx}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{plstx}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The compiler first translates the Remora AST without consulting any annotations,
+and leaving a special 
+\family typewriter
+TUnknown
+\family default
+ value as the result type for each 
+\family typewriter
+App
+\family default
+ form (for testing purposes, it is possible to erase an AST that has not
+ been typechecked.
+ The Remora AST's existing annotations are carried through to the erased
+ AST, except when erasing a 
+\family typewriter
+TLam
+\family default
+ or 
+\family typewriter
+TApp
+\family default
+.
+ Since these forms collapse into their expression subterms, their annotations
+ must be merged (the default merge procedure just uses the parent node's
+ annotation).
+ A second pass uses type annotations to replace the 
+\family typewriter
+TUnknown
+\family default
+s with the correct result types.
+ The erased AST also has mapping and merging operations analogous to those
+ of the Remora AST.
+\end_layout
+
+\begin_layout Standard
+The erasure pass itself is given below.
+ The 
+\begin_inset Formula $\type$
+\end_inset
+
+ in the rule for erasing an application form refers to the otherwise implicit
+ type annotation on the AST.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{array}{lcl}
+\eraseT{\var} & = & \erasedvartype\\
+\eraseT{\basetype} & = & \erasedbasetype\\
+\eraseT{\typefun{\sequence{\type}}{\alttype}} & = & \typefun{\sequence{\eraseT{\type}}}{\eraseT{\alttype}}\\
+\eraseT{\typearray{\idx}{\type}} & = & \typearray{\idx}{\eraseT{\type}}\\
+\eraseT{\typeuniv{\sequence{\var}}{\type}} & = & \eraseT{\type}\\
+\eraseT{\typeprod{\sequence{(\var\;\sort)}}{\type}} & = & \typeprod{\sequence{(\var\;\sort)}}{\eraseT{\type}}\\
+\eraseT{\typesum{\sequence{(\var\;\sort)}}{\type}} & = & \typesum{\sequence{(\var\;\sort)}}{\eraseT{\type}}\\
+\\
+\eraseL{\lam{\sequence{(\var\;\type)}}{\expr}} & = & \lam{\sequence{\var}}{\eraseE{\expr}}\\
+\eraseL{\base} & = & \base\\
+\eraseL{\expr} & = & \eraseE{\expr}\\
+\\
+\eraseE{\tlam{\sequence{\var}}{\expr}} & = & \eraseE{\expr}\\
+\eraseE{\tapp{\expr}{\sequence{\type}}} & = & \eraseE{\expr}\\
+\eraseE{\ilam{\sequence{(\var\;\sort)}}{\expr}} & = & \ilam{\sequence{(\var\;\sort)}}{\eraseE{\expr}}\\
+\eraseE{\iapp{\expr}{\sequence{\idx}}} & = & \iapp{\eraseE{\expr}}{\sequence{\idx}}\\
+\eraseE{\var} & = & \var\\
+\eraseE{\arrlit{\sequence{\elt}}{\sequence{\nat}}} & = & \arrlit{\sequence{\eraseL{\elt}}}{\sequence{\nat}}\\
+\eraseE{\pack{\sequence{\idx}}{\expr}{\type}} & = & \erasedpack{\sequence{\idx}}{\eraseE{\expr}}\\
+\eraseE{\unpack{\sequence{\var}}{\altvar}{\expr}{\expr'}} & = & \unpack{\sequence{\var}}{\altvar}{\eraseE{\expr}}{\eraseE{\expr'}}\\
+\eraseE{\app{\expr}{\sequence{\expr'}}^{\type}} & = & \erasedapp{\eraseE{\expr}}{\sequence{\eraseE{\expr'}}}{\eraseT{\type}}\\
+\\
+\end{array}
+\]
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Map/Replicate Abstract Syntax
+\end_layout
+
+\begin_layout Standard
+This phase eliminates the implicit rank-polymorphic mapping.
+ Function application lifting is rewritten as an explicit map and replicate
+ operations.
+ The Map/Replicate AST is closer to a conventional 
+\begin_inset Formula $\lambda$
+\end_inset
+
+-calculus in that expressions, array elements, and type indices are no longer
+ separated.
+ Function application is now conventional, non-lifting application.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Preview
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{plstx}
+\end_layout
+
+\begin_layout Plain Layout
+
+(expressions): 
+\backslash
+expr
+\end_layout
+
+\begin_layout Plain Layout
+
+	::= 
+\backslash
+app{
+\backslash
+expr}{
+\backslash
+sequence{
+\backslash
+expr}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+mrvec{
+\backslash
+sequence{
+\backslash
+expr}}{
+\backslash
+sequence{
+\backslash
+nat}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+mrmap{
+\backslash
+expr_{frm}}{
+\backslash
+expr_{fn}}{
+\backslash
+sequence{
+\backslash
+expr_{arg}}}{
+\backslash
+expr_{shp}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+mrrep{
+\backslash
+expr}{
+\backslash
+expr_{frm}}{
+\backslash
+expr_{exp}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+mrtuple{
+\backslash
+sequence{
+\backslash
+expr}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+mrlet{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+expr}{
+\backslash
+expr'}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+lam{
+\backslash
+sequence{
+\backslash
+var}}{
+\backslash
+expr}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+var
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+base
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{plstx}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A 
+\family typewriter
+Map
+\family default
+ takes as input a (possibly computed) frame shape which is used to determine
+ how many cells to divide each argument array into for mapping.
+ If the frame shape includes a 0 (i.e., there are no argument cells), the
+ alternate shape argument is used to construct the final result.
+ Given a well-typed program, 
+\begin_inset Formula $\expr_{shp}$
+\end_inset
+
+ should have 
+\begin_inset Formula $\expr_{frm}$
+\end_inset
+
+ as prefix.
+ A 
+\family typewriter
+Rep
+\family default
+ takes arguments specifying the original frame (thus how many cells there
+ are) and the expansion (how many copies of each cell to make).
+ A 
+\family typewriter
+Let
+\family default
+ binds the elements of a tuple.
+ Again, in a Map/Replicate program generated from a valid Remora program
+ should only have 
+\begin_inset Formula $\expr$
+\end_inset
+
+ evaluate to a tuple.
+ Remora/erased expressions should still translate to map/replicate expressions
+ which produce arrays.
+ Merging the term and index namespaces requries name mangling to keep index
+ and term variables from shadowing each other.
+ This translation pass requires AST annotations for application and argument
+ frame shapes:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{array}[t]{rcl}
+\eraseE{\var} & = & \mathit{\var}\\
+\eraseE{\ilam{\sequence{(\var\;\sort)}}{\expr}} & = & \lam{\sequence{\mangle{\var}}}{\eraseE{\expr}}\\
+\eraseE{\iapp{\expr}{\sequence{\idx}}} & = & \app{\eraseE{\expr}}{\sequence{\eraseI{\idx}}}\\
+\eraseE{\erasedpack{\sequence{\idx}}{\expr}} & = & \mrtuple{\sequence{\eraseI{\idx}}\;\eraseE{\expr}}\\
+\eraseE{\unpack{\sequence{\var}}{\altvar}{\expr}{\expr'}} & = & \mrletbr{\sequence{\mangle{\var}}\;\altvar}{\eraseE{\expr}}{\eraseE{\expr'}}\\
+\eraseE{\erasedapp{\expr}{\sequence{\expr'}}{\type}} & = & \mrmapbr{\appframe{\expr}}{\applyfun{\var}{\sequence{\altvar}}}{\eraseA{\expr}\;\sequence{\eraseA{\expr'}}}{a}\\
+\eraseE{\arrlit{\sequence{\elt}}{\sequence{\nat}}} & = & \mrvec{\sequence{\eraseL{\elt}}}{\sequence{\nat}}\\
+\\
+\eraseL{\expr} & = & \eraseE{\expr}\\
+\eraseL{\base} & = & \eraseL{\base}\\
+\eraseL{\lam{\sequence{\var}}{\expr}} & = & \lam{\sequence{\var}}{\eraseE{\expr}}\\
+\\
+\eraseI{\nat} & = & \nat\\
+\eraseI{\idxplus{\idx}{\altidx}} & = & \app{{\tt +}}{\eraseI{\idx}\;\eraseI{\altidx}}\\
+\eraseI{\idxshape{\;\sequence{\idx}}} & = & \mrvec{\sequence{\eraseI{\idx}}}{\length{\sequence{\idx}}}\\
+\eraseI{\var} & = & \mangle{\var}\\
+\\
+\eraseA{\expr} & = & \mrrep{\expr}{\argframe{\expr}}{\expansion{\expr}}\\
+\\
+\end{array}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+At several points, the translation must consult the (implicit) frame annotation
+ on an expression.
+ The list of shapes 
+\begin_inset Formula $\sequence{\idx}$
+\end_inset
+
+ in the annotation becomes the expression 
+\begin_inset Formula $\app{{\tt append}}{\sequence{\eraseI{\idx}}}$
+\end_inset
+
+.
+ The possibility of arrays of functions appearing in function position slightly
+ complicates the translation into an explicit map.
+ With possibly no single function to map over the argument arrays, we defunction
+alize the application by generating an 
+\family typewriter
+apply
+\family default
+ function to map instead.
+\end_layout
+
+\begin_layout Section
+Remaining Work
+\end_layout
+
+\begin_layout Subsection
+Partial Evaluation
+\end_layout
+
+\begin_layout Standard
+The Map/Replicate translation tends to introduce needless computation, such
+ as defunctionalizing the application of a scalar array and replicating
+ with an expansion of 
+\begin_inset Formula $\app{{\tt append}}{\mrvec{\;}{0}\;\mrvec{\;}{0}}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Replication Rewriting
+\end_layout
+
+\begin_layout Standard
+The 
+\family typewriter
+Rep
+\family default
+ form is convenient but expressible using 
+\family typewriter
+Map
+\family default
+.
+ Loop fusion later will likely be simpler with one less iterative form to
+ deal with.
+\end_layout
+
+\begin_layout Subsection
+Closure Conversion
+\end_layout
+
+\begin_layout Subsection
+Inlining
+\end_layout
+
+\begin_layout Subsection
+Fusion
+\end_layout
+
+\begin_layout Subsection
+A-Normalization
+\end_layout
+
+\begin_layout Subsection
+LLVM Code Generation
 \end_layout
 
 \end_body
