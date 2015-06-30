@@ -1075,7 +1075,7 @@ fn
 \family typewriter
  TFun ([cell_typ ...], ret_typ)
 \family default
-, or in abstract notation, 
+, or 
 \begin_inset Formula $\typefun{\sequence{\tt cell\_typ}}{\tt ret\_typ}$
 \end_inset
 
@@ -1088,7 +1088,7 @@ in
 \family typewriter
 arg
 \family default
- gives its 
+ gives that argument's 
 \family typewriter
 arg_frame_shape
 \family default
@@ -1217,7 +1217,7 @@ fn
 \family typewriter
 TDProd ([(ivar, s) ...], tbody)
 \family default
-, or 
+, or in abstract notation 
 \begin_inset Formula $\typeprod{\sequence{({\tt ivar}\;{\tt s})}}{\tt tbody}$
 \end_inset
 
@@ -2276,7 +2276,7 @@ Let
 \eraseL{\lam{\sequence{\var}}{\expr}} & = & \lam{\sequence{\var}}{\eraseE{\expr}}\\
 \\
 \eraseI{\nat} & = & \nat\\
-\eraseI{\idxplus{\idx}{\altidx}} & = & \app{{\tt +}}{\eraseI{\idx}\;\eraseI{\altidx}}\\
+\eraseI{\idxplus{\idx}{\altidx}} & = & \app{\tt +}{\eraseI{\idx}\;\eraseI{\altidx}}\\
 \eraseI{\idxshape{\;\sequence{\idx}}} & = & \mrvec{\sequence{\eraseI{\idx}}}{\length{\sequence{\idx}}}\\
 \eraseI{\var} & = & \mangle{\var}\\
 \\
@@ -2298,7 +2298,7 @@ At several points, the translation must consult the (implicit) frame annotation
 \end_inset
 
  in the annotation becomes the expression 
-\begin_inset Formula $\app{{\tt append}}{\sequence{\eraseI{\idx}}}$
+\begin_inset Formula $\app{\tt append}{\sequence{\eraseI{\idx}}}$
 \end_inset
 
 .
@@ -2324,7 +2324,7 @@ Partial Evaluation
 The Map/Replicate translation tends to introduce needless computation, such
  as defunctionalizing the application of a scalar array and replicating
  with an expansion of 
-\begin_inset Formula $\app{{\tt append}}{\mrvec{\;}{0}\;\mrvec{\;}{0}}$
+\begin_inset Formula $\app{\tt append}{\mrvec{\;}{0}\;\mrvec{\;}{0}}$
 \end_inset
 
 .
@@ -2362,6 +2362,102 @@ Fusion
 
 \begin_layout Subsection
 A-Normalization
+\end_layout
+
+\begin_layout Subsection
+Primitive Operations
+\end_layout
+
+\begin_layout Itemize
+arithmetic
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+integer and float versions
+\end_layout
+
+\begin_layout Itemize
+coercion
+\end_layout
+
+\begin_layout Itemize
+RNG?
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+logic, selection
+\end_layout
+
+\begin_layout Itemize
+list-like things
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+head, tail, behead, curtail
+\end_layout
+
+\begin_layout Itemize
+take, drop, take-right, drop-right
+\end_layout
+
+\begin_layout Itemize
+reverse
+\end_layout
+
+\begin_layout Itemize
+rotate
+\end_layout
+
+\begin_layout Itemize
+append
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+shape manipulation
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+reshape, itemize, ravel
+\end_layout
+
+\begin_layout Itemize
+transpose
+\end_layout
+
+\begin_layout Itemize
+shape-of, length
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+other iteration patterns
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+left/right fold
+\end_layout
+
+\begin_layout Itemize
+associative reduce/scan
+\end_layout
+
+\begin_layout Itemize
+filter
+\end_layout
+
+\begin_layout Itemize
+iota
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+I/O
 \end_layout
 
 \begin_layout Subsection

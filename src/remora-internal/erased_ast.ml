@@ -173,7 +173,7 @@ let of_prog (B.RProg (defns, expr)) =
    procedure. In the default case, the outer annotation is kept, and the inner
    annotation is dropped. *)
 let rec of_ann_expr
-    ?(merge = (fun (a1: 'annot) (a2: 'annot) -> a1))
+    ?(merge = (fun (parent: 'annot) (child: 'annot) -> parent))
     (B.AnnRExpr (a, e): 'annot B.ann_expr)
     : 'annot ann_expr =
   match e with

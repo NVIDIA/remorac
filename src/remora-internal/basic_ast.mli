@@ -33,7 +33,7 @@ type var = bytes with sexp
 val gensym_reset : unit -> unit
 val gensym : string -> var
 
-type idx = 
+type idx =
 | INat of int
 | IShape of idx list
 | ISum of idx * idx
@@ -43,43 +43,44 @@ with sexp
 type srt = SNat | SShape with sexp
 
 type typ =
-    TFloat
-  | TInt
-  | TBool
-  | TDProd of (var * srt) list * typ
-  | TDSum of (var * srt) list * typ
-  | TFun of typ list * typ
-  | TArray of idx * typ
-  | TAll of var list * typ
-  | TVar of var
+| TFloat
+| TInt
+| TBool
+| TDProd of (var * srt) list * typ
+| TDSum of (var * srt) list * typ
+| TFun of typ list * typ
+| TArray of idx * typ
+| TAll of var list * typ
+| TVar of var
 with sexp
 
 type ('self_t, 'elt_t) expr_form =
-    App of 'self_t * 'self_t list
-  | TApp of 'self_t * typ list
-  | TLam of var list * 'self_t
-  | IApp of 'self_t * idx list
-  | ILam of (var * srt) list * 'self_t
-  | Arr of int list * 'elt_t list
-  | Var of var
-  | Pack of idx list * 'self_t * typ
-  | Unpack of var list * var * 'self_t * 'self_t
+| App of 'self_t * 'self_t list
+| TApp of 'self_t * typ list
+| TLam of var list * 'self_t
+| IApp of 'self_t * idx list
+| ILam of (var * srt) list * 'self_t
+| Arr of int list * 'elt_t list
+| Var of var
+| Pack of idx list * 'self_t * typ
+| Unpack of var list * var * 'self_t * 'self_t
 and ('self_t, 'expr_t) elt_form =
-    Float of float
-  | Int of int
-  | Bool of bool
-  | Lam of (var * typ) list * 'expr_t
-  | Expr of 'expr_t
+| Float of float
+| Int of int
+| Bool of bool
+| Lam of (var * typ) list * 'expr_t
+| Expr of 'expr_t
 with sexp
 
 val map_expr_form :
   f_expr:('old_self_t -> 'new_self_t)
-   -> f_elt:('old_elt_t -> 'new_elt_t)
-   -> ('old_self_t, 'old_elt_t) expr_form
-   -> ('new_self_t, 'new_elt_t) expr_form
+  -> f_elt:('old_elt_t -> 'new_elt_t)
+  -> ('old_self_t, 'old_elt_t) expr_form
+  -> ('new_self_t, 'new_elt_t) expr_form
 val map_elt_form :
-  f_expr:('old_expr_t -> 'new_expr_t) ->
-  ('old_self_t, 'old_expr_t) elt_form -> ('new_self_t, 'new_expr_t) elt_form
+  f_expr:('old_expr_t -> 'new_expr_t)
+  -> ('old_self_t, 'old_expr_t) elt_form
+  -> ('new_self_t, 'new_expr_t) elt_form
 
 type 'annot ann_expr =
   AnnRExpr of 'annot * ('annot ann_expr, 'annot ann_elt) expr_form
