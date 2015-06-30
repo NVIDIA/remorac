@@ -26,19 +26,54 @@
 (* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.       *)
 (******************************************************************************)
 
-module AST = Test_basic_ast.UnitTests;;
-module Typecheck = Test_typechecker.UnitTests;;
-module Frame_annotate = Test_frame_notes.UnitTests;;
-module Erase = Test_erased_ast.UnitTests;;
-module MapRep = Test_map_replicate_ast.UnitTests;;
-module Clos = Test_closures.UnitTests;;
-open OUnit2
+module MR = Map_replicate_ast;;
+module B = Basic_ast;;
+open Frame_notes
 
-let () =
-  run_test_tt_main AST.suite_init_drop;
-  run_test_tt_main Typecheck.tests;
-  run_test_tt_main Frame_annotate.tests;
-  run_test_tt_main Erase.tests;
-  run_test_tt_main MapRep.tests;
-  run_test_tt_main Clos.tests
-;;
+type var = Basic_ast.var with sexp
+
+type 'a cl_app_t = {closure: 'a; args: 'a list;} with sexp
+type 'a closure_t = {code: 'a; env: 'a} with sexp
+
+type 'a expr_form =
+| App of 'a cl_app_t
+| Vec of 'a MR.vec_t
+| Map of 'a MR.map_t
+| Rep of 'a MR.rep_t
+| Tup of 'a MR.tup_t
+| Let of 'a MR.let_t
+| Cls of 'a closure_t
+| Lam of 'a MR.lam_t
+| Var of var
+| Int of int
+| Float of float
+| Bool of bool
+with sexp
+
+val map_expr_form : f:('a -> 'b) -> 'a expr_form -> 'b expr_form
+
+type expr = Expr of expr expr_form with sexp
+type defn = Defn of var * expr with sexp
+type prog = Prog of defn list * expr with sexp
+
+type 'annot ann_expr = AExpr of 'annot * ('annot ann_expr) expr_form with sexp
+type 'annot ann_defn = ADefn of var * 'annot ann_expr with sexp
+type 'annot ann_prog =
+  AProg of 'annot * 'annot ann_defn list * 'annot ann_expr with sexp
+
+val expr_of_maprep : var list -> 'a MR.ann_expr -> 'a ann_expr
+
+val annot_expr_drop : 'a ann_expr -> expr
+val annot_defn_drop : 'a ann_defn -> defn
+val annot_prog_drop : 'a ann_prog -> prog
+
+module Passes : sig
+  val prog : 'a MR.ann_prog -> 'a ann_prog
+  val defn : 'a MR.ann_defn -> 'a ann_defn
+  val expr : 'a MR.ann_expr -> 'a ann_expr
+
+  val prog_all : B.rem_prog -> (arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (arg_frame * app_frame) ann_expr option
+end

@@ -26,19 +26,28 @@
 (* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.       *)
 (******************************************************************************)
 
-module AST = Test_basic_ast.UnitTests;;
-module Typecheck = Test_typechecker.UnitTests;;
-module Frame_annotate = Test_frame_notes.UnitTests;;
-module Erase = Test_erased_ast.UnitTests;;
-module MapRep = Test_map_replicate_ast.UnitTests;;
-module Clos = Test_closures.UnitTests;;
-open OUnit2
+open Closures
+open Core.Std
+module MR = Map_replicate_ast;;
+module B = Basic_ast;;
+module U = OUnit2;;
 
-let () =
-  run_test_tt_main AST.suite_init_drop;
-  run_test_tt_main Typecheck.tests;
-  run_test_tt_main Frame_annotate.tests;
-  run_test_tt_main Erase.tests;
-  run_test_tt_main MapRep.tests;
-  run_test_tt_main Clos.tests
-;;
+val unary_lam : expr
+
+val mr_wrap : string MR.ann_expr MR.expr_form -> string MR.ann_expr
+
+val escaping_function : string MR.ann_expr
+
+val converted : expr
+
+val subst : (var, expr) List.Assoc.t -> expr -> expr
+
+val alpha_eqv : expr -> expr -> bool
+
+module Test_closure_conversion : sig
+  val tests : U.test
+end
+
+module UnitTests : sig
+  val tests : U.test
+end
