@@ -245,7 +245,7 @@ let type_abst = Expr (Vec {dims = [];
                            elts = [Expr (Lam {bindings = ["x"];
                                               body = Expr (Var "x")})]})
 let index_abst =
-  Expr (Lam {bindings = ["d"];
+  Expr (Lam {bindings = ["__I_d"];
              body = Expr (Vec {dims = [];
                                elts = [Expr (Lam {bindings = ["l"];
                                                   body = Expr (Var "l")})]})})

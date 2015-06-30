@@ -157,8 +157,10 @@ let rec of_erased_expr
   AExpr ((arg, app), 
          match e with
          | E.Var name -> Var name
-         | E.ILam (bindings, body) -> Lam {bindings = List.map ~f:fst bindings;
-                                           body = of_erased_expr body}
+         | E.ILam (bindings, body) ->
+           Lam {bindings = List.map
+               ~f:(fun (name, sort) -> ("__I_" ^ name)) bindings;
+                body = of_erased_expr body}
          | E.IApp (fn, args) -> App {fn = of_erased_expr fn;
                                      args = List.map ~f:of_erased_idx args}
          (* Note: the value has moved to the front of the tuple. *)
