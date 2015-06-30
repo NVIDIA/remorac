@@ -97,6 +97,10 @@ val annot_expr_drop : 'a ann_expr -> expr
 val annot_defn_drop : 'a ann_defn -> defn
 val annot_prog_drop : 'a ann_prog -> prog
 
+val get_free_vars :
+  var list -> (var list -> 'a -> var list) -> 'a expr_form -> var list
+val aexpr_free_vars : var list -> 'a ann_expr -> var list
+
 module Passes : sig
   val prog :
     (E.typ * arg_frame * app_frame) E.ann_prog

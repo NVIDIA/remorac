@@ -243,6 +243,48 @@ let rec annot_defn_drop (ADefn (n, v)) =
 let rec annot_prog_drop (AProg (_, defns, e)) =
   Prog (List.map ~f:annot_defn_drop defns, annot_expr_drop e)
 
+(* Remove all occurrences of an element from a list *)
+let rec remove x xs =
+  match xs with
+  | [] -> []
+  | y :: ys -> if (y = x) then remove x ys
+    else y :: (remove x ys)
+let remove_all xs ys =
+  List.fold_right ~init:ys ~f:(fun l r -> remove l r) ys
+
+(* Identify all variables which appear free in an expression. *)
+let get_free_vars
+    (bound: var list)
+    (recur: var list -> 'a -> var list)
+    (e: 'a expr_form) : var list =
+  match e with
+  | App {fn = f; args = a} ->
+    (recur bound f) :: (List.map ~f:(recur bound) a) |>
+        List.concat |> List.dedup
+  | Vec {dims = d; elts = l} ->
+    List.map ~f:(recur bound) l |> List.concat |> List.dedup
+  | Map {frame = fr; fn = fn; args = a; shp = s} ->
+    (recur bound fr) :: (recur bound fn) :: (recur bound s) ::
+      List.map ~f:(recur bound) a |>
+          List.concat |> List.dedup
+  | Rep {arg = a; old_frame = o; new_frame = n} ->
+    List.append (recur bound a) (List.append (recur bound n) (recur bound a)) |>
+        List.dedup
+  | Tup l -> List.map ~f:(recur bound) l |> List.concat |> List.dedup
+  | Lam {bindings = v; body = b} ->
+    let bound_ = List.dedup (List.append bound v) in
+    recur bound_ b
+  | Let {vars = v; bound = bn; body = bd} ->
+    let bound_ = List.dedup (List.append bound v) in
+    List.append (recur bound bn) (recur bound_ bd) |> List.dedup
+  | Var n -> if List.mem bound n then [] else [n]
+  | Int _ | Float _ | Bool _ -> []
+let rec aexpr_free_vars
+    (bound: var list)
+    (AExpr (_, expr): 'a ann_expr) : var list =
+  get_free_vars bound aexpr_free_vars expr
+
+
 module Passes : sig
   val prog :
     (E.typ * arg_frame * app_frame) E.ann_prog
