@@ -2313,6 +2313,32 @@ apply
 \end_layout
 
 \begin_layout Section
+Closure Conversion
+\end_layout
+
+\begin_layout Standard
+The explicit map/replicate must then be transformed so that every 
+\family typewriter
+Lam
+\family default
+ form is replaced with an explicit closure which contains a copy of the
+ environment and a reference to the function code.
+ Though it is possible to represent a closure as an ordinary tuple, this
+ compiler uses an added form (and hence a new AST type) to make it clear
+ whether an AST has been converted.
+ The new closure application form should be understood as destructing a
+ closure and passing the environment to the function alongside the application
+ form's own arguments.
+ Next, each 
+\family typewriter
+Lam
+\family default
+ form must be replaced with a use of a new top-level definition.
+ This leaves the enclosing closure to contain only a pointer to the function
+ rather than an actual blob of code.
+\end_layout
+
+\begin_layout Section
 Remaining Work
 \end_layout
 
@@ -2346,10 +2372,6 @@ Map
 .
  Loop fusion later will likely be simpler with one less iterative form to
  deal with.
-\end_layout
-
-\begin_layout Subsection
-Closure Conversion
 \end_layout
 
 \begin_layout Subsection
