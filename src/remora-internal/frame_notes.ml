@@ -189,6 +189,7 @@ module Passes : sig
   val elt_all : rem_elt -> (typ * arg_frame * app_frame) ann_elt option
 end = struct
   open Annotation
+  open Option.Monad_infix
   let triple x (y, z) = (x, y, z)
   let prog typ_ast =
     let app_ast = annot_prog_app_frame typ_ast in
@@ -203,7 +204,7 @@ end = struct
       ~message:"Failed to merge typ and app/arg annotations"
       (annot_prog_merge triple typ_ast arg_app_ast)
   let prog_all ast =
-    ast |> Typechecker.Passes.prog_all |> Option.map ~f:prog
+    ast |> Typechecker.Passes.prog_all >>| prog
 
   let defn typ_ast =
     let app_ast = annot_defn_app_frame typ_ast in
@@ -218,7 +219,7 @@ end = struct
       ~message:"Failed to merge typ and app/arg annotations"
       (annot_defn_merge triple typ_ast arg_app_ast)
   let defn_all ast =
-    ast |> Typechecker.Passes.defn_all |> Option.map ~f:defn
+    ast |> Typechecker.Passes.defn_all >>| defn
 
   let expr typ_ast =
     let app_ast = annot_expr_app_frame typ_ast in
@@ -236,7 +237,7 @@ end = struct
       ~message:"Failed to merge typ and app/arg annotations"
       (annot_expr_merge triple typ_ast arg_app_ast)
   let expr_all ast =
-    ast |> Typechecker.Passes.expr_all |> Option.map ~f:expr
+    ast |> Typechecker.Passes.expr_all >>| expr
 
   let elt typ_ast =
     let app_ast = annot_elt_app_frame typ_ast in
@@ -251,5 +252,5 @@ end = struct
       ~message:"Failed to merge typ and app/arg annotations"
       (annot_elt_merge triple typ_ast arg_app_ast)
   let elt_all ast =
-    ast |> Typechecker.Passes.elt_all |> Option.map ~f:elt
+    ast |> Typechecker.Passes.elt_all >>| elt
 end

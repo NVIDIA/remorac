@@ -164,9 +164,9 @@ end = struct
   let prog remora = remora |> prog_of_maprep ~bound_vars:lib_vars
   let defn remora = remora |> defn_of_maprep lib_vars
   let expr remora = remora |> expr_of_maprep lib_vars
-
-  let prog_all remora = remora |> MR.Passes.prog_all |> Option.map ~f:prog
-  let defn_all remora = remora |> MR.Passes.defn_all |> Option.map ~f:defn
-  let expr_all remora = remora |> MR.Passes.expr_all |> Option.map ~f:expr
-  let elt_all remora = remora |> MR.Passes.elt_all |> Option.map ~f:expr
+  open Option.Monad_infix
+  let prog_all remora = remora |> MR.Passes.prog_all >>| prog
+  let defn_all remora = remora |> MR.Passes.defn_all >>| defn
+  let expr_all remora = remora |> MR.Passes.expr_all >>| expr
+  let elt_all remora = remora |> MR.Passes.elt_all >>| expr
 end

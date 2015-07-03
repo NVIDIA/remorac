@@ -133,7 +133,7 @@ let annot_prog_merge
   let (AnnRProg (annot1, defs1, expr1), AnnRProg (annot2, defs2, expr2))
       = (ast1, ast2) in
   map2 ~f:(annot_defn_merge f) defs1 defs2
-    |> Option.map ~f:Option.all |> Option.join
+    >>| Option.all |> Option.join
   >>= fun (ds: 'c ann_defn list) ->
   annot_expr_merge f expr1 expr2 >>= fun e ->
   AnnRProg (f annot1 annot2, ds, e) |> return

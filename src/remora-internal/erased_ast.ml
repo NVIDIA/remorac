@@ -333,7 +333,7 @@ let annot_prog_merge
     ((AnnEProg (annot1, defs1, e1)): 'a ann_prog)
     ((AnnEProg (annot2, defs2, e2)): 'b ann_prog) : 'c ann_prog option =
   map2 ~f:(annot_defn_merge f) defs1 defs2
-    |> Option.map ~f:Option.all |> Option.join >>= fun new_defs ->
+    >>| Option.all |> Option.join >>= fun new_defs ->
   annot_expr_merge f e1 e2 >>= fun new_expr ->
   return (AnnEProg (f annot1 annot2, new_defs, new_expr))
 
@@ -379,6 +379,7 @@ module Passes : sig
   val expr_all : B.rem_expr -> (typ * arg_frame * app_frame) ann_expr option
   val elt_all : B.rem_elt -> (typ * arg_frame * app_frame) ann_elt option
 end = struct
+  open Option.Monad_infix
   let prog (ast : (B.typ * arg_frame * app_frame) B.ann_prog)
       : (typ * arg_frame * app_frame) ann_prog =
     (* Generate the type-erased structure, with wrong result type declarations
@@ -398,7 +399,7 @@ end = struct
       (annot_prog_merge
          (fun t (_,arg,app) -> (t,arg,app))
          typ_fixed typ_arg_app_erased)
-  let prog_all ast = ast |> Frame_notes.Passes.prog_all |> Option.map ~f:prog
+  let prog_all ast = ast |> Frame_notes.Passes.prog_all >>| prog
 
   let defn ast =
     let typ_arg_app_erased = of_ann_defn ast in
@@ -411,7 +412,7 @@ end = struct
       (annot_defn_merge
          (fun t (_,arg,app) -> (t,arg,app))
          typ_fixed typ_arg_app_erased)
-  let defn_all ast = ast |> Frame_notes.Passes.defn_all |> Option.map ~f:defn
+  let defn_all ast = ast |> Frame_notes.Passes.defn_all >>| defn
 
   let expr ast =
     let typ_arg_app_erased = of_ann_expr ast in
@@ -424,7 +425,7 @@ end = struct
       (annot_expr_merge
          (fun t (_,arg,app) -> (t,arg,app))
          typ_fixed typ_arg_app_erased)
-  let expr_all ast = ast |> Frame_notes.Passes.expr_all |> Option.map ~f:expr
+  let expr_all ast = ast |> Frame_notes.Passes.expr_all >>| expr
 
   let elt ast =
     let typ_arg_app_erased = of_ann_elt ast in
@@ -437,5 +438,5 @@ end = struct
       (annot_elt_merge
          (fun t (_,arg,app) -> (t,arg,app))
          typ_fixed typ_arg_app_erased)
-  let elt_all ast = ast |> Frame_notes.Passes.elt_all |> Option.map ~f:elt
+  let elt_all ast = ast |> Frame_notes.Passes.elt_all >>| elt
 end

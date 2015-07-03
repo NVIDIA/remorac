@@ -267,15 +267,15 @@ end = struct
     U.assert_equal
       (original
           |> Passes.expr_all
-          |> Option.map ~f:annot_expr_drop
-          |> Option.map ~f:(eval_expr ~env:[]))
+          >>| annot_expr_drop
+          >>| (eval_expr ~env:[]))
       (Some final)
   let assert_translate_elt original final =
     U.assert_equal
       (original
           |> Passes.elt_all
-          |> Option.map ~f:annot_expr_drop
-          |> Option.map ~f:(eval_expr ~env:[]))
+          >>| annot_expr_drop
+          >>| (eval_expr ~env:[]))
       (Some final)
   module TB = Test_basic_ast;;
   let test_1 _ =

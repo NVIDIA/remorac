@@ -242,8 +242,7 @@ let frame_contribution (cell_typ_: typ) (arg_typ_: typ) : idx list option =
         cell_typ elt_type >>= fun (elt_contrib) ->
       shp :: elt_contrib |> return
     | _ -> None in
-  Option.map ~f:drop_scalar_shapes
-    (frame_contribution_internal cell_typ_ arg_typ_)
+  (frame_contribution_internal cell_typ_ arg_typ_) >>| drop_scalar_shapes
 
 (* Construct a type from a chosen cell type and shape *)
 let typ_of_shape (cell: typ) (shp: idx list) : typ =
@@ -448,6 +447,7 @@ and annot_expr_type
             (* Does substituting those indices into the declared type give the
                body's type? If the previous check passed, the lists we're
                zipping must have the same length. *)
+            (* TODO: Use typ_equal for this check? *)
             && (Option.value_exn body_typ)
             = (idx_into_typ (List.zip_exn (List.map ~f:fst ivars) new_idxs) t)
         then (Some (TDSum (ivars, t)),
