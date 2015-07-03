@@ -150,6 +150,38 @@ let annot_defn_drop (ADefn (name, body): 'a ann_defn) : defn =
 let annot_prog_drop (AProg (_, defns, expr): 'a ann_prog) : prog =
   Prog (List.map ~f:annot_defn_drop defns, annot_expr_drop expr)
 
+(* A computed value of type 'v, along with a list of definitions accumulated
+   in the process of computing it, and a monadic interface for working with
+   these structures. *)
+module Defn_writer : sig
+  type ('v, 'a) t = 'v * 'a ann_defn list
+  val (>>=) : ('v, 'a) t -> ('v -> ('w, 'a) t) -> ('w, 'a) t
+  val (>>|) : ('v, 'a) t -> ('v -> 'w) -> ('w, 'a) t
+  val bind : ('v, 'a) t -> ('v -> ('w, 'a) t) -> ('w, 'a) t
+  val return : 'v -> ('v, 'a) t
+  val map : ('v, 'a) t -> f:('v -> 'w) -> ('w, 'a) t
+  val join : (('v, 'a) t, 'a) t -> ('v, 'a) t
+  val all : ('v, 'a) t list -> ('v list, 'a) t
+end = struct
+  type ('v, 'a) t = 'v * 'a ann_defn list
+  let (>>=)
+      ((val_in, defns_in): ('v, 'a) t)
+      (f: 'v -> ('w, 'a) t) : ('w, 'a) t =
+    let (val_ret, defns_ret) = f val_in in
+    (val_ret, List.append defns_in defns_ret)
+  let (>>|)
+      ((val_in, defns_in): ('v, 'a) t)
+      (f: 'v -> 'w) : ('w, 'a) t =
+    (f val_in, defns_in)
+  let bind v f = v >>= f
+  let return v = (v, [])
+  let map t ~f = t >>| f
+  let join t = t >>= (fun t' -> t')
+  let all ts = (List.map ~f:fst ts, List.join (List.map ~f:snd ts))
+end
+
+
+
 module Passes : sig
   val prog : 'a MR.ann_prog -> 'a ann_prog
   val defn : 'a MR.ann_defn -> 'a ann_defn
