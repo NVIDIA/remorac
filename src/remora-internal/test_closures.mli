@@ -48,6 +48,10 @@ module Test_closure_conversion : sig
   val tests : U.test
 end
 
+module Test_lambda_hoisting : sig
+  val tests : U.test
+end
+
 module UnitTests : sig
   val tests : U.test
 end
