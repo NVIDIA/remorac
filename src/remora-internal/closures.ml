@@ -152,16 +152,20 @@ let annot_prog_drop (AProg (_, defns, expr): 'a ann_prog) : prog =
 
 (* A computed value of type 'v, along with a list of definitions accumulated
    in the process of computing it, and a monadic interface for working with
-   these structures. *)
+   these structures.
+   TODO: May want to use something other than a list for accumulating
+   definitions if appending gets too slow. *)
 module Defn_writer : sig
   type ('v, 'a) t = 'v * 'a ann_defn list
   val (>>=) : ('v, 'a) t -> ('v -> ('w, 'a) t) -> ('w, 'a) t
   val (>>|) : ('v, 'a) t -> ('v -> 'w) -> ('w, 'a) t
+  val (>>) : ('v, 'a) t -> ('w, 'a) t -> ('w, 'a) t
   val bind : ('v, 'a) t -> ('v -> ('w, 'a) t) -> ('w, 'a) t
   val return : 'v -> ('v, 'a) t
   val map : ('v, 'a) t -> f:('v -> 'w) -> ('w, 'a) t
   val join : (('v, 'a) t, 'a) t -> ('v, 'a) t
   val all : ('v, 'a) t list -> ('v list, 'a) t
+  val tell : 'a ann_defn list -> (unit, 'a) t
 end = struct
   type ('v, 'a) t = 'v * 'a ann_defn list
   let (>>=)
@@ -173,14 +177,72 @@ end = struct
       ((val_in, defns_in): ('v, 'a) t)
       (f: 'v -> 'w) : ('w, 'a) t =
     (f val_in, defns_in)
+  let (>>) x y = x >>= (fun _ -> y)
   let bind v f = v >>= f
   let return v = (v, [])
   let map t ~f = t >>| f
   let join t = t >>= (fun t' -> t')
   let all ts = (List.map ~f:fst ts, List.join (List.map ~f:snd ts))
+  let tell new_defns = ((), new_defns)
 end
 
-
+(* Traverse an expression, replacing Lam forms with fresh Var forms and
+   generating a list of (annotated) definitions for those variables. *)
+let rec expr_hoist_lambdas
+    ((AExpr (a, e): 'a ann_expr) as expr)
+    : ('a ann_expr, 'a) Defn_writer.t =
+  let open Defn_writer in
+  (* In almost all cases, we just recur on all subexpressions and merge
+     their results together. *)
+  match e with
+  | App {closure = clos; args = args} ->
+    expr_hoist_lambdas clos >>= fun new_clos ->
+    List.map ~f:expr_hoist_lambdas args |> all >>= fun new_args ->
+    AExpr (a, App {closure = new_clos; args = new_args}) |> return
+  | Vec {MR.dims = dims; MR.elts = elts} ->
+    List.map ~f:expr_hoist_lambdas elts |> all >>= fun new_elts ->
+    AExpr (a, Vec {MR.dims = dims; MR.elts = new_elts}) |> return
+  | Map {MR.frame = frame; MR.fn = fn; MR.args = args; MR.shp = shp} ->
+    expr_hoist_lambdas frame >>= fun new_frame ->
+    expr_hoist_lambdas fn >>= fun new_fn ->
+    List.map ~f:expr_hoist_lambdas args |> all >>= fun new_args ->
+    expr_hoist_lambdas shp >>= fun new_shp ->
+    AExpr (a, Map {MR.frame = new_frame;
+                   MR.fn = new_fn;
+                   MR.args = new_args;
+                   MR.shp = new_shp}) |> return
+  | Rep {MR.arg = arg; MR.old_frame = oldf; MR.new_frame = newf} ->
+    expr_hoist_lambdas arg >>= fun new_arg ->
+    expr_hoist_lambdas oldf >>= fun new_oldf ->
+    expr_hoist_lambdas newf >>= fun new_newf ->
+    AExpr (a, Rep {MR.arg = new_arg;
+                   MR.old_frame = new_oldf;
+                   MR.new_frame = new_newf}) |> return
+  | Tup elts ->
+    List.map ~f:expr_hoist_lambdas elts |> all >>= fun new_elts ->
+    AExpr (a, Tup new_elts) |> return
+  | Let {MR.vars = vars; MR.bound = bound; MR.body = body} ->
+    expr_hoist_lambdas bound >>= fun new_bound ->
+    expr_hoist_lambdas body >>= fun new_body ->
+    AExpr (a, Let {MR.vars = vars;
+                   MR.bound = new_bound;
+                   MR.body = new_body}) |> return
+  | Cls {code = code; env = env} ->
+    expr_hoist_lambdas code >>= fun new_code ->
+    expr_hoist_lambdas env >>= fun new_env ->
+    AExpr (a, Cls {code = new_code; env = new_env}) |> return
+  (* This is the only interesting case. *)
+  | Lam {MR.bindings = vars; MR.body = body} ->
+    (* Generate a new name to use as a global variable. *)
+    let new_global = B.gensym "__HOIST_" in
+    (* Hoist any lambdas that appear within the function body. *)
+    expr_hoist_lambdas body >>= fun new_body ->
+    (* Emit a new definition for this function, with the converted body. *)
+    tell [ADefn (new_global, AExpr (a, Lam {MR.bindings = vars;
+                                            MR.body = new_body}))] >>
+    (* Replace this function with the global variable. *)
+    (AExpr (a, Var new_global) |> return)
+  | Var _ | Int _ | Float _ | Bool _ -> return expr
 
 module Passes : sig
   val prog : 'a MR.ann_prog -> 'a ann_prog

@@ -67,6 +67,21 @@ val annot_expr_drop : 'a ann_expr -> expr
 val annot_defn_drop : 'a ann_defn -> defn
 val annot_prog_drop : 'a ann_prog -> prog
 
+module Defn_writer : sig
+  type ('v, 'a) t = 'v * 'a ann_defn list
+  val (>>=) : ('v, 'a) t -> ('v -> ('w, 'a) t) -> ('w, 'a) t
+  val (>>|) : ('v, 'a) t -> ('v -> 'w) -> ('w, 'a) t
+  val (>>) : ('v, 'a) t -> ('w, 'a) t -> ('w, 'a) t
+  val bind : ('v, 'a) t -> ('v -> ('w, 'a) t) -> ('w, 'a) t
+  val return : 'v -> ('v, 'a) t
+  val map : ('v, 'a) t -> f:('v -> 'w) -> ('w, 'a) t
+  val join : (('v, 'a) t, 'a) t -> ('v, 'a) t
+  val all : ('v, 'a) t list -> ('v list, 'a) t
+  val tell : 'a ann_defn list -> (unit, 'a) t
+end
+
+val expr_hoist_lambdas : 'a ann_expr -> ('a ann_expr, 'a) Defn_writer.t
+
 module Passes : sig
   val prog : 'a MR.ann_prog -> 'a ann_prog
   val defn : 'a MR.ann_defn -> 'a ann_defn
