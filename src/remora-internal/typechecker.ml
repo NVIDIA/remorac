@@ -577,7 +577,7 @@ end = struct
   (* Use these for info about primitives/builtin library stuff. *)
   let lib_idxs = []
   let lib_typs = []
-  let lib_vars = []
+  let lib_vars = Globals.builtins
   let prog remora = remora
     |> annot_prog_type lib_idxs lib_typs lib_vars |> well_typed_of_prog
   let prog_all remora = remora
