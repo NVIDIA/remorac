@@ -83,6 +83,43 @@ let converted =
           MR.body = Expr (App {closure = Expr (Var "f");
                                args = [Expr (Int 6)]})})
 
+let destr_dsum =
+  mr_wrap
+    (MR.Let {MR.vars = ["l";"n"];
+             MR.bound = mr_wrap
+        (MR.App {MR.fn = mr_wrap (MR.Var "iota");
+                 MR.args = [mr_wrap
+                               (MR.Vec {MR.dims = [];
+                                        MR.elts = [mr_wrap (MR.Int 5)]})]});
+             MR.body = mr_wrap
+        (MR.Tup [mr_wrap (MR.Var "l");
+                 mr_wrap (MR.Map {MR.frame = mr_wrap (MR.Var "l");
+                                  MR.fn = mr_wrap
+                     (MR.Lam {MR.bindings = ["x"];
+                              MR.body = mr_wrap
+                         (MR.App {MR.fn = mr_wrap (MR.Var "+");
+                                  MR.args = []})});
+                                  MR.args = [];
+                                  MR.shp = mr_wrap (MR.Var "l")})])})
+
+let vec_scal_add =
+  mr_wrap
+    (MR.Lam {MR.bindings = ["l"];
+             MR.body = mr_wrap
+        (MR.Lam {MR.bindings = ["x";"y"];
+                 MR.body = mr_wrap
+            (MR.Map {MR.frame = mr_wrap (MR.Var "l");
+                     MR.fn = mr_wrap (MR.Var "+");
+                     MR.args =
+                [mr_wrap (MR.Var "x");
+                 mr_wrap (MR.Rep {MR.arg = mr_wrap (MR.Var "y");
+                                  MR.old_frame = mr_wrap
+                     (MR.Vec {MR.dims = [0]; MR.elts = []});
+                                  MR.new_frame = mr_wrap
+                     (MR.Vec {MR.dims = [1];
+                              MR.elts = [mr_wrap (MR.Var "l")]})})];
+                     MR.shp = mr_wrap (MR.Var "l")})})})
+
 let rec subst (s : (var, expr) List.Assoc.t) ((Expr e) as exp: expr) : expr =
   match e with
   | Let {MR.vars = vars; MR.bound = bound; MR.body = body} ->
@@ -168,45 +205,46 @@ end = struct
       ["lambda escaping with a let-bound var">:: test_1]
 end
 
+  (* Make sure we can undo hoisting by substituting defn bodies back in. *)
+let expr_unhoist ((expr, defns): ('a ann_expr, 'a) Defn_writer.t) : expr =
+  subst
+    (List.map ~f:(fun (ADefn (name, value)) ->
+      (name, annot_expr_drop value)) defns)
+    (annot_expr_drop expr)
+let hoist_unhoist (e: 'a ann_expr) : bool =
+  (e |> expr_hoist_lambdas |> expr_unhoist) = (e |> annot_expr_drop)
+
+  (* Make sure we generate code with no inline lambdas. *)
+let rec lambda_free (AExpr (_, e): 'a ann_expr) : bool =
+  match e with
+  | App {closure = c; args = a} ->
+    lambda_free c && List.for_all ~f:lambda_free a
+  | Vec {MR.dims = _; MR.elts = elts} -> List.for_all ~f:lambda_free elts
+  | Map {MR.frame = fr; MR.fn = fn; MR.args = a; MR.shp} ->
+    List.for_all ~f:lambda_free (fr :: fn :: shp :: a)
+  | Rep {MR.arg = a; MR.old_frame = o; MR.new_frame = n} ->
+    lambda_free a && lambda_free o && lambda_free n
+  | Tup elts -> List.for_all ~f:lambda_free elts
+  | Let {MR.vars = _; MR.bound = bn; MR.body = bd} ->
+    lambda_free bn && lambda_free bd
+  | Lam _ -> false
+  | Cls {code = c; env = n} -> lambda_free c && lambda_free n
+  | Var _ | Int _ | Float _ | Bool _ -> true
+  (* It's ok to define a function, but make sure no lambdas appear in the
+     function body. *)
+let defn_lambda_free (ADefn (n, (AExpr (_, e) as expr)): 'a ann_defn) : bool =
+  match e with
+  | Lam {MR.bindings = _; MR.body = b} -> lambda_free b
+  | _ -> lambda_free expr
+let writer_lambda_free ((expr, defns): ('a ann_expr, 'a) Defn_writer.t)
+    : bool =
+  List.for_all ~f:defn_lambda_free defns && lambda_free expr
+
 module Test_lambda_hoisting : sig
   val tests : U.test
 end = struct
-  (* Make sure we can undo hoisting by substituting defn bodies back in. *)
-  let expr_unhoist ((expr, defns): ('a ann_expr, 'a) Defn_writer.t) : expr =
-    subst
-      (List.map ~f:(fun (ADefn (name, value)) ->
-        (name, annot_expr_drop value)) defns)
-      (annot_expr_drop expr)
-  let hoist_unhoist (e: 'a ann_expr) : bool =
-    (e |> expr_hoist_lambdas |> expr_unhoist) = (e |> annot_expr_drop)
   let test_hoist_unhoist e =
     e |> hoist_unhoist |> U.assert_bool "Hoist-unhoist match check"
-
-  (* Make sure we generate code with no inline lambdas. *)
-  let rec lambda_free (AExpr (_, e): 'a ann_expr) : bool =
-    match e with
-    | App {closure = c; args = a} ->
-      lambda_free c && List.for_all ~f:lambda_free a
-    | Vec {MR.dims = _; MR.elts = elts} -> List.for_all ~f:lambda_free elts
-    | Map {MR.frame = fr; MR.fn = fn; MR.args = a; MR.shp} ->
-      List.for_all ~f:lambda_free (fr :: fn :: shp :: a)
-    | Rep {MR.arg = a; MR.old_frame = o; MR.new_frame = n} ->
-      lambda_free a && lambda_free o && lambda_free n
-    | Tup elts -> List.for_all ~f:lambda_free elts
-    | Let {MR.vars = _; MR.bound = bn; MR.body = bd} ->
-      lambda_free bn && lambda_free bd
-    | Lam _ -> false
-    | Cls {code = c; env = n} -> lambda_free c && lambda_free n
-    | Var _ | Int _ | Float _ | Bool _ -> true
-  (* It's ok to define a function, but make sure no lambdas appear in the
-     function body. *)
-  let defn_lambda_free (ADefn (n, (AExpr (_, e) as expr)): 'a ann_defn) : bool =
-    match e with
-    | Lam {MR.bindings = _; MR.body = b} -> lambda_free b
-    | _ -> lambda_free expr
-  let writer_lambda_free ((expr, defns): ('a ann_expr, 'a) Defn_writer.t)
-      : bool =
-    List.for_all ~f:defn_lambda_free defns && lambda_free expr
   let test_lambda_free expr =
     expr |> expr_hoist_lambdas |> writer_lambda_free |>
         U.assert_bool "Generate lambda-free code"
@@ -216,11 +254,25 @@ end = struct
     escaping_function |> expr_of_maprep ["+"] |> test_hoist_unhoist
   let test_2 _ =
     escaping_function |> expr_of_maprep ["+"] |> test_lambda_free
+  let test_3 _ =
+    destr_dsum |> expr_of_maprep ["+"; "iota"] |> test_hoist_unhoist
+  let test_4 _ =
+    destr_dsum |> expr_of_maprep ["+"; "iota"] |> test_lambda_free
+  (* Unhoisting does not work with lambda-producing lambdas (and making it
+     work would risk infinitely unrolling a recursive call), so eliding this
+     test. *)
+  (* let test_5 _ = *)
+  (*   vec_scal_add |> expr_of_maprep ["+"] |> test_hoist_unhoist *)
+  let test_6 _ =
+    vec_scal_add |> expr_of_maprep ["+"] |> test_lambda_free
   let tests =
     let open OUnit2 in
     "hoist lambdas out to top-level definitions">:::
       ["lambda escaping with a let-bound var">:: test_1;
-       "lambda escaping with a let-bound var">:: test_2]
+       "lambda escaping with a let-bound var">:: test_2;
+       "destructing a dependent sum">:: test_3;
+       "destructing a dependent sum">:: test_4;
+       "adding vector and scalar">:: test_6]
 end
 
 module UnitTests : sig

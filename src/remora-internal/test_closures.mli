@@ -40,9 +40,19 @@ val escaping_function : string MR.ann_expr
 
 val converted : expr
 
+val destr_dsum : string MR.ann_expr
+val vec_scal_add : string MR.ann_expr
+
 val subst : (var, expr) List.Assoc.t -> expr -> expr
 
 val alpha_eqv : expr -> expr -> bool
+
+val expr_unhoist : ('a ann_expr, 'a) Defn_writer.t -> expr
+val hoist_unhoist : 'a ann_expr -> bool
+
+val lambda_free : 'a ann_expr -> bool
+val defn_lambda_free : 'a ann_defn -> bool
+val writer_lambda_free : ('a ann_expr, 'a) Defn_writer.t -> bool
 
 module Test_closure_conversion : sig
   val tests : U.test
