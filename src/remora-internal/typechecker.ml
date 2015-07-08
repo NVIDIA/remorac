@@ -127,7 +127,9 @@ let rec shape_of_typ (t: typ) : idx list option =
   | TArray (s, t) ->
     expand_shape s >>= fun s_ ->
     shape_of_typ t >>= fun t_ ->
-    List.append s_ t_ |> return
+    let candidate = List.append s_ t_ in
+    (* Drop any scalar nesting components *)
+    List.filter ~f:(fun i -> i <> (IShape [])) candidate |> return
   | _ -> Some []
 let rec elt_of_typ (t: typ) : typ option =
   match t with
@@ -231,7 +233,7 @@ let frame_contribution (cell_typ_: typ) (arg_typ_: typ) : idx list option =
     canonicalize_typ arg_typ >>= fun at_canonical ->
   (* Base case: the types are equal *)
     if typ_equal ct_canonical at_canonical
-    then Some [IShape []]
+    then Some []
   (* Inductive case: peel away a layer of the actual type's shape *)
     else match at_canonical with
     | TArray (shp, elt_type) ->

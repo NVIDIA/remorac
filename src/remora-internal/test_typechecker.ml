@@ -458,7 +458,7 @@ end = struct
   let test_1 _ =
     U.assert_equal
       (frame_contribution (TArray (IShape [], TInt)) (TArray (IShape [], TInt)))
-      (Some [IShape []])
+      (Some [])
   let test_2 _ =
     U.assert_equal
       (frame_contribution
@@ -499,7 +499,7 @@ end = struct
       (frame_contribution
          (TArray (IVar "d", TArray (IShape [INat 4], TFloat)))
          (TArray (IVar "d", TArray (IShape [INat 4], TFloat))))
-      (Some [IShape []])
+      (Some [])
   let test_9 _ =
     U.assert_equal
       (frame_contribution

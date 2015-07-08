@@ -105,7 +105,7 @@ end = struct
     expr_arg_notes typed_lifted_curried_addition annotated_expr
   let tests =
     let open OUnit2 in
-    "add argument frame shape annotation">:::
+    "add argument frame shape annotations to expr">:::
       ["lifting curried addition">:: test_1]
 end
 
@@ -131,11 +131,11 @@ end = struct
                                                expansion = []},
                                             Var "+"),
                                   [AnnRExpr (ArgFrame
-                                               {frame = [IShape []];
+                                               {frame = [];
                                                 expansion = []},
                                              Var "x");
                                    AnnRExpr (ArgFrame
-                                               {frame = [IShape []];
+                                               {frame = [];
                                                 expansion = []},
                                              Var "y")])) in
     let inner_fun =
@@ -158,20 +158,20 @@ end = struct
                                   TArray (IShape [], TInt))))) in
     let annotated_defn =
       AnnRDefn ("c+", curried_add_type, annotated_curried_add) in
-    U.assert_equal
-      (annot_prog_arg_expansion
-         (Option.value_exn
-            (Annotation.annot_prog_merge
-               Tuple2.create
-               (annot_prog_app_frame typed_curried_addition)
-               typed_curried_addition)))
-      (AnnRProg
-         (NotArg,
-          [annotated_defn],
-          annotated_expr))
+    let test_case = (annot_prog_arg_expansion
+                       (Option.value_exn
+                          (Annotation.annot_prog_merge
+                             Tuple2.create
+                             (annot_prog_app_frame typed_curried_addition)
+                             typed_curried_addition)))
+    and target = (AnnRProg
+                    (NotArg,
+                     [annotated_defn],
+                     annotated_expr)) in
+    U.assert_equal test_case target
   let tests =
     let open OUnit2 in
-    "add argument frame shape annotation">:::
+    "add argument frame shape annotations to program">:::
       ["lifting curried addition">:: test_1]
 end
 
