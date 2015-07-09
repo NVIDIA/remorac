@@ -47,6 +47,8 @@ val shape_drop : idx list -> idx list -> idx list option
 val shape_of_typ : typ -> idx list option
 val elt_of_typ : typ -> typ option
 
+val idx_equal : idx -> idx -> bool
+
 val canonicalize_typ : typ -> typ option
 
 val prefix_of : 'a list -> 'a list -> bool option

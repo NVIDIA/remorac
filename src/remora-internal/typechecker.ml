@@ -137,6 +137,35 @@ let rec elt_of_typ (t: typ) : typ option =
   | TArray (_, t) -> Some t
   | _ -> None
 
+(* Get the additive components in an index (should represent a dimension). *)
+let rec summands_of_dim (i: idx) : int * var list =
+  match i with
+  | INat n -> (n, [])
+  | IVar n -> (0, [n])
+  | ISum (s1, s2) ->
+    let (i1, v1) = summands_of_dim s1
+    and (i2, v2) = summands_of_dim s2 in
+    (i1 + i2, List.append v1 v2)
+    (* Shapes should not appear inside shapes anyway *)
+  | IShape _ -> (0, [])
+(* Check whether two string lists contain the same thing. If the internal
+   representation of variables is changed, this will have to change too. *)
+let same_contents l1 l2 =
+  List.sort ~cmp:String.compare l1 = List.sort ~cmp:String.compare l2
+(* Check whether two indices are equivalent. *)
+let rec idx_equal (i1: idx) (i2: idx) : bool =
+  i1 = i2 ||
+  (match (i1, i2) with
+  | (IShape dims1, IShape dims2) ->
+    (List.length dims1 = List.length dims2)
+    && List.for_all2_exn ~f:idx_equal dims1 dims2
+  | (IShape _, _) | (_, IShape _) -> false
+  | (_, _) ->
+    (* Convert each to a list of summands *)
+    let (n1, v1) = summands_of_dim i1
+    and (n2, v2) = summands_of_dim i2 in
+    n1 = n2 && same_contents v1 v2)
+
 (* Canonicalize a type by rewriting TArrays in fully nested form. May reutrn
    None if given an array type with an invalid shape. *)
 let rec canonicalize_typ = function
@@ -210,12 +239,7 @@ let typ_equal (t1: typ) (t2: typ) : bool =
             body2
         in typ_equal_ new_body1 new_body2
     | (TArray (s1, elts1), TArray (s2, elts2)) ->
-      (* TODO: check idx equality *)
-      (s1 = s2) && (typ_equal_ elts1 elts2)
-    (* | (TArray _, TArray _) -> *)
-    (*   Option.value ~default:false (canonicalize_typ t1 >>= fun t1_ -> *)
-    (*                                canonicalize_typ t2 >>= fun t2_ -> *)
-    (*                                typ_equal_ t1_ t2_ |> return) *)
+      (idx_equal s1 s2) && (typ_equal_ elts1 elts2)
     | (TFun (args1, ret1), TFun (args2, ret2)) ->
       (List.for_all2_exn ~f:typ_equal_ args1 args2) && (typ_equal_ ret1 ret2)
     | (TVar x, TVar y) -> x = y

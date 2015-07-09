@@ -433,6 +433,14 @@ end = struct
       (TArray (IShape [IVar "i"], (TArray (IShape [], TInt))))
   let test_14 _ =
     test_neq (TVar "q") (TVar "w")
+  let test_15 _ =
+    test_eq
+      (TArray (IShape [INat 2], TFloat))
+      (TArray (IShape [ISum (INat 1, INat 1)], TFloat))
+  let test_16 _ =
+    test_eq
+      (TArray (IShape [INat 2], TFloat))
+      (TArray (IShape [ISum (INat 1, INat 1)], TArray (IShape [], TFloat)))
   let tests =
     let open OUnit2 in
     "check type equivalence">:::
@@ -449,7 +457,9 @@ end = struct
        "nested and non-nested array versions">:: test_11;
        "array with changed type">:: test_12;
        "scalar/vector nesting">:: test_13;
-       "different type vars">:: test_14]
+       "different type vars">:: test_14;
+       "equivalent indices">:: test_15;
+       "equivalent indices and equivalent nesting">:: test_16]
 end
 
 module Test_frame_contribution : sig
