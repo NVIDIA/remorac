@@ -486,7 +486,8 @@ and annot_expr_type
           annot_expr_type idxs typs vars dsum in
         let (witnesses, contents_binding) =
           (match dsum_type with
-          | Some (TDSum (w, t)) -> (w, [v, t])
+          | Some ((TDSum (w, t)) | (TArray (IShape [], TDSum (w, t)))) ->
+            (w, [v, t])
           | _ -> ([], [])) in
         let body_annot =
           annot_expr_type
