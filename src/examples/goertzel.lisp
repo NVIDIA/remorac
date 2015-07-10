@@ -1,7 +1,6 @@
 (RProg
  ;; Top-level definitions
- (#;<defn>
-  (RDefn sample-rate (TArray (IShape ()) TFloat)
+ ((RDefn sample-rate (TArray (IShape ()) TFloat)
          (RExpr (Arr () ((RElt (Float 8000.))))))
   (RDefn tau (TArray (IShape ()) TFloat)
          (RExpr
@@ -73,8 +72,7 @@
           (TArray (IShape ())
                   (TFun ((TArray (IShape ()) TFloat)
                          (TArray (IShape ((INat 2))) TFloat))
-                        (TArray (IShape ((INat 2)))
-                                (TArray (IShape ()) TFloat))))))
+                        (TArray (IShape ((INat 2))) TFloat)))))
    (RExpr
     (Arr
      ()
@@ -150,24 +148,75 @@
                          (IShape ()))))
                       (TFloat)))
                     ((RExpr (Var accum)))))))))))))))))))))
-  #;<more-defns>
-  )
-  ;; Main expression
-  (RExpr
-   (App
-    (RExpr
-     (TApp
-      (RExpr
-       (IApp
+  (RDefn
+   goertzel-iir
+   (TDProd
+    ((len SNat))
+    (TArray (IShape ())
+            (TFun ((TArray (IShape ()) TFloat)
+                   (TArray (IShape ((IVar len))) TFloat))
+                  (TArray (IShape ((IVar len))) TFloat))))
+   (RExpr
+    (ILam
+     ((len SNat))
+     (RExpr
+      (Arr
+       ()
+       ((RElt
+         (Lam
+          ((freq (TArray (IShape ()) TFloat))
+           (signal (TArray (IShape ((IVar len))) TFloat)))
+          (RExpr
+           (App
+            (RExpr
+             (TApp
+              (RExpr
+               (IApp
+                (RExpr (var head))
+                ((INat 1)
+                 (IShape ()))))
+              (TFloat)))
+            ((RExpr
+              (App
+               (RExpr
+                (TApp
+                 (RExpr
+                  (IApp
+                   (RExpr (Var scanl))
+                   ((IVar len)
+                    (IShape ((INat 2)))
+                    (IShape ()))))
+                 (TFloat TFloat)))
+               ((RExpr (App (RExpr (Var goertzel-iir-step))
+                            ((RExpr (Var freq)))))
+                (RExpr (Arr (2) ((RElt (Float 0.)) (RElt (Float 0.)))))
+                (RExpr (Var signal)))))))))))))))))
+ ;; Main expression: Read chosen frequencies and signal, apply IIR stage
+ ;; of Goertzel filters at those frequencies.
+ (RExpr
+  (App
+   (RExpr
+    (Arr
+     ()
+     ((RElt
+       (Lam
+        ((freq (TArray (IShape ()) TFloat)))
         (RExpr
-         (Var sinusoid*))
-        ((INat 10))))
-      (TInt)))
-    ((RExpr (Arr (10) ((RElt (Int 0)) (RElt (Int 0))
-                       (RElt (Int 0)) (RElt (Int 0))
-                       (RElt (Int 0)) (RElt (Int 0))
-                       (RElt (Int 0)) (RElt (Int 0))
-                       (RElt (Int 0)) (RElt (Int 0)))))
-     (RExpr (Arr () ((RElt (Float 0.25)))))
-     (RExpr (Arr () ((RElt (Float 0.)))))))))
+         (Unpack
+          (l) signal
+          (RExpr (App (RExpr (Var readvec_f)) ()))
+          (RExpr
+           (Pack
+            ((IVar l))
+            (RExpr
+             (App
+              (RExpr
+               (IApp
+                (RExpr (Var goertzel-iir))
+                ((IVar l))))
+              ((RExpr (Var freq))
+               (RExpr (Var signal)))))
+            (TDSum ((sig-length SNat))
+                   (TArray (IShape ((IVar sig-length))) TFloat)))))))))))
+   ((RExpr (App (RExpr (Var readscal_f)) ()))))))
 
