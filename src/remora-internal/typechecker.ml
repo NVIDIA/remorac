@@ -311,13 +311,20 @@ let prefix_max (lsts: 'a list list) : 'a list option =
                      ~f:(fun l r -> l >>= fun l_ -> prefixed l_ r)
                      lsts_)
 
+(* Clear out some needless nesting. Not strictly necessary. *)
+let rec merge_scalar (t: typ) : typ =
+  match t with
+  | TArray (IShape [], (TArray (shp, elt) as inner)) ->
+    merge_scalar inner
+  | TArray (shp, elt) -> TArray (shp, merge_scalar elt)
+  | _ -> t
 (* Build an array type from a given nested shape *)
 let build_array_type (shp: idx list) (elt: typ) : typ option =
   match shp with
   | [] ->TArray (IShape shp, elt) |> canonicalize_typ
   | _ -> (List.fold_right
             ~f:(fun i t -> TArray (i, t))
-            ~init:elt shp) |> canonicalize_typ
+            ~init:elt shp) |> merge_scalar |> canonicalize_typ
 
 (* Determine whether a type is a non-array (valid for use as an argument for
    a type abstraction).
