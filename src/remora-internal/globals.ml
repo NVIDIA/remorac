@@ -180,7 +180,7 @@ let right_fold =
 let left_scan =
   let anyl = any "sl" "tl"
   and anyr = any "sr" "tr" in
-  ["foldl", TDProd (["l", SNat; "sl", SShape; "sr", SShape],
+  ["scanl", TDProd (["l", SNat; "sl", SShape; "sr", SShape],
                     TAll (["tl"; "tr"],
                           func [func [anyr; anyl] anyl;
                                 anyl;
@@ -190,7 +190,7 @@ let left_scan =
 let right_scan =
   let anyl = any "sl" "tl"
   and anyr = any "sr" "tr" in
-  ["foldl", TDProd (["l", SNat; "sl", SShape; "sr", SShape],
+  ["scanr", TDProd (["l", SNat; "sl", SShape; "sr", SShape],
                     TAll (["tl"; "tr"],
                           func [func [anyr; anyl] anyr;
                                 anyr;
