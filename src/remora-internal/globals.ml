@@ -230,6 +230,8 @@ let read name t =
   [name, func [] (TDSum (["s", SShape], TArray (IVar "s", t)))]
 let readvec name t =
   [name, func [] (TDSum (["l", SNat], vecv "l" t))]
+let readscal name t =
+  [name, func [] t]
 let write name t =
   [name, TDProd (["s", SShape],
                  func [TArray (IVar "s", t)] TBool)]
@@ -242,6 +244,10 @@ let readvec_basetype =
   List.join [readvec "readvec_i" TInt;
              readvec "readvec_f" TFloat;
              readvec "readvec_b" TBool]
+let readscal_basetype =
+  List.join [readscal "readscal_i" TInt;
+             readscal "readscal_f" TFloat;
+             readscal "readscal_b" TBool]
 let write_basetype =
   List.join [write "write_i" TInt;
              write "write_f" TFloat;
@@ -279,4 +285,5 @@ let builtins =
              iota_witness;
              read_basetype;
              readvec_basetype;
+             readscal_basetype;
              write_basetype]
