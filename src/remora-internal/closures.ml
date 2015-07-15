@@ -162,7 +162,10 @@ let prog_of_maprep
     ?(bound_vars = [])
     (MR.AProg (a, defns, expr): 'a MR.ann_prog)
     : 'a ann_prog =
-  let top_level_names = List.map ~f:(fun (MR.ADefn (n, _)) -> n) defns in
+  let top_level_names =
+    List.append
+      (List.map ~f:(fun (MR.ADefn (n, _)) -> n) defns)
+      bound_vars in
   AProg (a, List.map ~f:(defn_of_maprep top_level_names) defns,
          expr_of_maprep top_level_names expr)
 
