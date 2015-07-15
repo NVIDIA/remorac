@@ -31,17 +31,19 @@ open Core.Std
 module MR = Map_replicate_ast;;
 module B = Basic_ast;;
 module U = OUnit2;;
+open Frame_notes;;
 
 val unary_lam : expr
 
-val mr_wrap : string MR.ann_expr MR.expr_form -> string MR.ann_expr
+val mr_wrap : (E.typ * arg_frame * app_frame) MR.ann_expr MR.expr_form
+  -> (E.typ * arg_frame * app_frame) MR.ann_expr
 
-val escaping_function : string MR.ann_expr
+val escaping_function : (E.typ * arg_frame * app_frame) MR.ann_expr
 
 val converted : expr
 
-val destr_dsum : string MR.ann_expr
-val vec_scal_add : string MR.ann_expr
+val destr_dsum : (E.typ * arg_frame * app_frame) MR.ann_expr
+val vec_scal_add : (E.typ * arg_frame * app_frame) MR.ann_expr
 
 val subst : (var, expr) List.Assoc.t -> expr -> expr
 

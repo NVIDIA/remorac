@@ -43,9 +43,12 @@ type typ =
 | TDProd of ((var * srt) list * typ)
 | TDSum of ((var * srt) list * typ)
 | TArray of (idx * typ)
+| TTuple of typ list
 with sexp
 
 val shape_of_typ : typ -> idx list option
+val elt_of_typ : typ -> typ option
+val typ_of_shape : idx list -> typ -> typ
 
 type ('self_t, 'elt_t) expr_form =
 | App of ('self_t * 'self_t list * typ)

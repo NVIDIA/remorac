@@ -28,6 +28,7 @@
 
 module MR = Map_replicate_ast;;
 module B = Basic_ast;;
+module E = Erased_ast;;
 open Frame_notes
 
 type var = Basic_ast.var with sexp
@@ -61,7 +62,10 @@ type 'annot ann_defn = ADefn of var * 'annot ann_expr with sexp
 type 'annot ann_prog =
   AProg of 'annot * 'annot ann_defn list * 'annot ann_expr with sexp
 
-val expr_of_maprep : var list -> 'a MR.ann_expr -> 'a ann_expr
+val expr_of_maprep :
+  var list
+  -> (E.typ * arg_frame * app_frame) MR.ann_expr
+  -> (E.typ * arg_frame * app_frame) ann_expr
 
 val annot_expr_drop : 'a ann_expr -> expr
 val annot_defn_drop : 'a ann_defn -> defn
@@ -83,12 +87,15 @@ end
 val expr_hoist_lambdas : 'a ann_expr -> ('a ann_expr, 'a) Defn_writer.t
 
 module Passes : sig
-  val prog : 'a MR.ann_prog -> 'a ann_prog
-  val defn : 'a MR.ann_defn -> 'a ann_defn
-  val expr : 'a MR.ann_expr -> 'a ann_expr
+  val prog : (E.typ * arg_frame * app_frame) MR.ann_prog
+    -> (E.typ * arg_frame * app_frame) ann_prog
+  val defn : (E.typ * arg_frame * app_frame) MR.ann_defn
+    -> (E.typ * arg_frame * app_frame) ann_defn
+  val expr : (E.typ * arg_frame * app_frame) MR.ann_expr
+    -> (E.typ * arg_frame * app_frame) ann_expr
 
-  val prog_all : B.rem_prog -> (arg_frame * app_frame) ann_prog option
-  val defn_all : B.rem_defn -> (arg_frame * app_frame) ann_defn option
-  val expr_all : B.rem_expr -> (arg_frame * app_frame) ann_expr option
-  val elt_all : B.rem_elt -> (arg_frame * app_frame) ann_expr option
+  val prog_all : B.rem_prog -> (E.typ * arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (E.typ * arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (E.typ * arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (E.typ * arg_frame * app_frame) ann_expr option
 end

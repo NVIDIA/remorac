@@ -32,6 +32,13 @@ module B = Basic_ast;;
 module E = Erased_ast;;
 module T = Typechecker;;
 
+(* TODO: Want a new form of "erased type" that can handle indices, which may
+   be int vectors of unknown length. For now, using E.TArray (IVar "", TUnknown)
+   for this. *)
+let shape_t = E.TArray (B.IVar "", E.TBase)
+let sum_t = E.TFun ([E.TBase; E.TBase], E.TBase)
+let append_t = E.TFun ([E.TBase; E.TBase], E.TBase)
+
 type var = Basic_ast.var with sexp
 
 (* In this stage, we eliminate the term/index distinction. Some expression
@@ -101,27 +108,33 @@ let op_name_plus : var = "+"
 let op_name_append : var = "append"
 
 (* Convert a type-erased AST into a Map/Replicate AST. The input AST is expected
-   to have annotations for type application and argument frames.
-   TODO: figure out a sensible kind of "type" for these to carry along. *)
-let rec of_erased_idx (i: B.idx) : (arg_frame * app_frame) ann_expr =
-AExpr ((NotArg, NotApp),
+   to have annotations for type, application, and argument frames. *)
+let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
+(* AExpr ((E.TUnknown, NotArg, NotApp), *)
        match i with
-       | B.INat n -> Int n
+       | B.INat n -> AExpr ((E.TBase, NotArg, NotApp), Int n)
   (* TODO: Make sure the programmer doesn't shadow this operator. *)
        | B.ISum (i1, i2) ->
-         App {fn = AExpr ((NotArg, NotApp),
+         AExpr ((E.TBase, NotArg, NotApp),
+         App {fn = AExpr ((sum_t, NotArg, NotApp),
                           Var op_name_plus);
-              args = [of_erased_idx i1; of_erased_idx i2]}
-       | B.IShape idxs -> Vec {dims = [List.length idxs];
-                               elts = List.map ~f:of_erased_idx idxs}
-       | B.IVar name -> Var ("__I_" ^ name))
+              args = [of_erased_idx i1; of_erased_idx i2]})
+       | B.IShape idxs ->
+         AExpr ((shape_t, NotArg, NotApp),
+                Vec {dims = [List.length idxs];
+                     elts = List.map ~f:of_erased_idx idxs})
+       (* We no longer see the checking environment. Maybe indices should
+          have been sort-annotated from the beginning? *)
+       | B.IVar name -> AExpr ((E.TUnknown, NotArg, NotApp), Var ("__I_" ^ name))
+(* ) *)
 
-let of_nested_shape (idxs: E.idx list) : (arg_frame * app_frame) ann_expr =
+let of_nested_shape (idxs: E.idx list)
+    : (E.typ * arg_frame * app_frame) ann_expr =
   List.map ~f:of_erased_idx idxs
   |> List.fold_right
       ~init:(of_erased_idx (B.IShape []))
-      ~f:(fun l r -> (AExpr ((NotArg, NotApp),
-                             App {fn = AExpr ((NotArg, NotApp),
+      ~f:(fun l r -> (AExpr ((shape_t, NotArg, NotApp),
+                             App {fn = AExpr ((append_t, NotArg, NotApp),
                                               Var op_name_append);
                                   args = [l; r]})))
 
@@ -132,29 +145,41 @@ let of_nested_shape (idxs: E.idx list) : (arg_frame * app_frame) ann_expr =
 (* Generate a "defunctionalized" map to handle an array-of-functions. Requires
    all arguments to be fully Replicated. *)
 let defunctionalized_map
-    ~(fn: (arg_frame * app_frame) ann_expr)
-    ~(args: (arg_frame * app_frame) ann_expr list)
-    ~(shp: (arg_frame * app_frame) ann_expr)
-    ~(frame: (arg_frame * app_frame) ann_expr) =
-  let __ = (NotArg, NotApp)
+    ~(fn: (E.typ * arg_frame * app_frame) ann_expr)
+    ~(args: (E.typ * arg_frame * app_frame) ann_expr list)
+    ~(shp: (E.typ * arg_frame * app_frame) ann_expr)
+    ~(frame: (E.typ * arg_frame * app_frame) ann_expr) =
+  let __ t = (t, NotArg, NotApp)
   and fn_var = B.gensym "__FN_"
-  and arg_vars = List.map ~f:(fun v -> B.gensym "__ARG_") args in
+  and arg_vars = List.map ~f:(fun _ -> B.gensym "__ARG_") args
+  and (AExpr ((fn_typ,_,_),_)) = fn in
+  (* Need to extract the input and output cell types from fn_typ.
+     TODO: if not array of functions, what do? *)
+  let (in_cell_typs, out_cell_typ) = (match E.elt_of_typ fn_typ with
+    | Some E.TFun ((_, _) as t) -> t
+    | _ -> ([E.TUnknown], E.TUnknown)) in
+  let fn_cell_typ = E.TFun (in_cell_typs, out_cell_typ) in
   let apply_lam =
-    AExpr (__,
+    (* If we're defunctionalizing an array of (t1 ... -> t2), then
+       apply's type is ((t1 ... -> t2) t1 ... -> t2)  *)
+    AExpr (__ (E.TFun (fn_cell_typ :: in_cell_typs, out_cell_typ)),
            Lam {bindings = fn_var :: arg_vars;
-                body = AExpr (__,
-                              App {fn = AExpr (__, Var fn_var);
-                                   args = (List.map
-                                             ~f:(fun v -> AExpr (__, Var v))
-                                             arg_vars)})}) in
+                body = AExpr (__ out_cell_typ,
+                              App {fn = AExpr (__ fn_cell_typ,
+                                               Var fn_var);
+                                   (* Each arg  *)
+                                   args = (List.map2_exn
+                                             ~f:(fun v t -> AExpr (__ t, Var v))
+                                             arg_vars in_cell_typs)})}) in
   Map {fn = apply_lam;
        args = fn :: args;
        shp = shp;
        frame = frame}
 let rec of_erased_expr
-    (E.AnnEExpr ((arg, app), e): (arg_frame * app_frame) E.ann_expr)
-    : (arg_frame * app_frame) ann_expr =
-  AExpr ((arg, app), 
+    (E.AnnEExpr ((typ, arg, app), e):
+       (E.typ * arg_frame * app_frame) E.ann_expr)
+    : (E.typ * arg_frame * app_frame) ann_expr =
+  AExpr ((typ, arg, app),
          match e with
          | E.Var name -> Var name
          | E.ILam (bindings, body) ->
@@ -173,21 +198,23 @@ let rec of_erased_expr
          | E.App (fn, args, shp) ->
            let app_frame_shape = of_nested_shape (idxs_of_app_frame_exn app) in
            (* How to lift an argument into the application form's frame. *)
-           let lift (E.AnnEExpr ((argf, appf), expr) as a) =
+           let lift (E.AnnEExpr ((typ, argf, appf), _) as a)
+               : (E.typ * arg_frame * app_frame) ann_expr =
              match argf with
              | NotArg -> assert false
              | ArgFrame {frame = fr; expansion = ex;} ->
              let compute_old_frame = of_nested_shape fr
              and target_frame = List.append fr ex in
-             AExpr ((ArgFrame {frame = target_frame;
-                      expansion = []},
+             AExpr ((E.typ_of_shape (idxs_of_app_frame_exn app) typ,
+                     ArgFrame {frame = target_frame;
+                               expansion = []},
                      appf),
                     Rep {arg = of_erased_expr a;
                          new_frame = app_frame_shape;
                          old_frame = compute_old_frame})
            (* Identify the function array's frame. If it's scalar, everything's
               simple. If it's not, we need to replace it with a scalar. *)
-           and fn_frame = frame_of_arg_exn (fst (E.annot_of_expr fn)) in
+           and fn_frame = frame_of_arg_exn (Tuple3.get2 (E.annot_of_expr fn)) in
            (* TODO: Relax this equality check to make sure we're not mapping
               on something like [IShape []; IShape []]. *)
            if fn_frame = []
@@ -212,11 +239,11 @@ let rec of_erased_expr
                 elts = List.map ~f:of_erased_elt elts}
   )
 and of_erased_elt
-    (E.AnnEElt ((arg, app), e): (arg_frame * app_frame) E.ann_elt)
-    : (arg_frame * app_frame) ann_expr =
+    (E.AnnEElt ((typ, arg, app), e): (E.typ * arg_frame * app_frame) E.ann_elt)
+    : (E.typ * arg_frame * app_frame) ann_expr =
   match e with
   | E.Expr (exp) -> of_erased_expr exp
-  | _ -> AExpr ((arg, app),
+  | _ -> AExpr ((typ, arg, app),
                 match e with
                 (* Already handled this case, so silence the
                    exhaustiveness warning for it. *)
@@ -227,107 +254,149 @@ and of_erased_elt
                 | E.Float f -> Float f
                 | E.Bool b -> Bool b)
 let of_erased_defn
-    (E.AnnEDefn (n, _, v): (arg_frame * app_frame) E.ann_defn)
-    : (arg_frame * app_frame) ann_defn =
+    (E.AnnEDefn (n, _, v): (E.typ * arg_frame * app_frame) E.ann_defn)
+    : (E.typ * arg_frame * app_frame) ann_defn =
   ADefn (n, of_erased_expr v)
 let of_erased_prog
-    (E.AnnEProg (annot, defns, expr): (arg_frame * app_frame) E.ann_prog)
-    : (arg_frame * app_frame) ann_prog =
+    (E.AnnEProg (annot, defns, expr):
+       (E.typ * arg_frame * app_frame) E.ann_prog)
+    : (E.typ * arg_frame * app_frame) ann_prog =
   AProg (annot, List.map ~f:(of_erased_defn) defns, of_erased_expr expr)
 
 (* For debugging help, a pass to drop annotations. *)
 let rec annot_expr_drop (AExpr (_, e)) =
   Expr (map_expr_form ~f:annot_expr_drop e)
-let rec annot_defn_drop (ADefn (n, v)) =
+let annot_defn_drop (ADefn (n, v)) =
   Defn (n, annot_expr_drop v)
-let rec annot_prog_drop (AProg (_, defns, e)) =
+let annot_prog_drop (AProg (_, defns, e)) =
   Prog (List.map ~f:annot_defn_drop defns, annot_expr_drop e)
 
 (* Remove all occurrences of an element from a list *)
-let rec remove x xs =
-  match xs with
-  | [] -> []
-  | y :: ys -> if (y = x) then remove x ys
-    else y :: (remove x ys)
-let remove_all xs ys =
-  List.fold_right ~init:ys ~f:(fun l r -> remove l r) ys
+(* let rec remove x xs = *)
+(*   match xs with *)
+(*   | [] -> [] *)
+(*   | y :: ys -> if (y = x) then remove x ys *)
+(*     else y :: (remove x ys) *)
+(* let remove_all xs ys = *)
+(*   List.fold_right ~init:ys ~f:(fun l r -> remove l r) ys *)
 
 (* Identify all variables which appear free in an expression. *)
 let get_free_vars
     (bound: var list)
     (recur: var list -> 'a -> var list)
     (e: 'a expr_form) : var list =
+  let dedup = List.dedup ~compare:String.compare in
   match e with
   | App {fn = f; args = a} ->
     (recur bound f) :: (List.map ~f:(recur bound) a) |>
-        List.concat |> List.dedup
-  | Vec {dims = d; elts = l} ->
-    List.map ~f:(recur bound) l |> List.concat |> List.dedup
+        List.concat |> dedup
+  | Vec {dims = _; elts = l} ->
+    List.map ~f:(recur bound) l |> List.concat |> dedup
   | Map {frame = fr; fn = fn; args = a; shp = s} ->
     (recur bound fr) :: (recur bound fn) :: (recur bound s) ::
       List.map ~f:(recur bound) a |>
-          List.concat |> List.dedup
+          List.concat |> dedup
   | Rep {arg = a; old_frame = o; new_frame = n} ->
-    List.append (recur bound a) (List.append (recur bound n) (recur bound a)) |>
-        List.dedup
-  | Tup l -> List.map ~f:(recur bound) l |> List.concat |> List.dedup
+    List.append (recur bound a)
+      (List.append (recur bound o) (recur bound n)) |>
+        dedup
+  | Tup l -> List.map ~f:(recur bound) l |> List.concat |> dedup
   | Lam {bindings = v; body = b} ->
     let bound_ = List.dedup (List.append bound v) in
     recur bound_ b
   | Let {vars = v; bound = bn; body = bd} ->
-    let bound_ = List.dedup (List.append bound v) in
-    List.append (recur bound bn) (recur bound_ bd) |> List.dedup
+    let bound_ = dedup (List.append bound v) in
+    List.append (recur bound bn) (recur bound_ bd) |> dedup
   | Var n -> if List.mem bound n then [] else [n]
   | Int _ | Float _ | Bool _ -> []
 let rec aexpr_free_vars
     (bound: var list)
     (AExpr (_, expr): 'a ann_expr) : var list =
   get_free_vars bound aexpr_free_vars expr
-
+(* Get annotated AST nodes for the free vars in an expression *)
+let rec get_annotated_free_vars
+    (bound: var list)
+    ((AExpr (_, e)) as ast: 'a ann_expr) : 'a ann_expr list =
+  (* Suppress warning about not explicitly passing a comparison function
+     for every |> use of List.dedup *)
+  let dedup a = List.dedup a in
+  match e with
+  | App {fn = f; args = a} ->
+    (get_annotated_free_vars bound f)
+    :: List.map ~f:(get_annotated_free_vars bound) a |>
+        List.concat |> dedup
+  | Vec {dims = _; elts = l} ->
+    List.map ~f:(get_annotated_free_vars bound) l |> List.concat |> dedup
+  | Map {frame = fr; fn = fn; args = a; shp = s} ->
+    (get_annotated_free_vars bound fr)
+    :: (get_annotated_free_vars bound fn)
+    :: (get_annotated_free_vars bound s)
+    :: List.map ~f:(get_annotated_free_vars bound) a |>
+        List.concat |> dedup
+  | Rep {arg = a; old_frame = o; new_frame = n} ->
+    List.append (get_annotated_free_vars bound a)
+      (List.append (get_annotated_free_vars bound o)
+         (get_annotated_free_vars bound n)) |> dedup
+  | Tup l ->
+    List.map ~f:(get_annotated_free_vars bound) l |> List.concat |> dedup
+  | Lam {bindings = v; body = b} ->
+    let bound_ = List.dedup (List.append bound v) in
+    get_annotated_free_vars bound_ b
+  | Let {vars = v; bound = bn; body = bd} ->
+    let bound_ = List.dedup (List.append bound v) in
+    List.append
+      (get_annotated_free_vars bound bn)
+      (get_annotated_free_vars bound_ bd) |> dedup
+  | Var n -> if List.mem bound n then [] else [ast]
+  | Int _ | Float _ | Bool _ -> []
 
 module Passes : sig
   val prog :
     (E.typ * arg_frame * app_frame) E.ann_prog
-    -> (arg_frame * app_frame) ann_prog
+    -> (E.typ * arg_frame * app_frame) ann_prog
   val defn :
     (E.typ * arg_frame * app_frame) E.ann_defn
-    -> (arg_frame * app_frame) ann_defn
+    -> (E.typ * arg_frame * app_frame) ann_defn
   val expr :
     (E.typ * arg_frame * app_frame) E.ann_expr
-    -> (arg_frame * app_frame) ann_expr
+    -> (E.typ * arg_frame * app_frame) ann_expr
   val elt :
     (E.typ * arg_frame * app_frame) E.ann_elt
-    -> (arg_frame * app_frame) ann_expr
+    -> (E.typ * arg_frame * app_frame) ann_expr
 
-  val prog_all : B.rem_prog -> (arg_frame * app_frame) ann_prog option
-  val defn_all : B.rem_defn -> (arg_frame * app_frame) ann_defn option
-  val expr_all : B.rem_expr -> (arg_frame * app_frame) ann_expr option
-  val elt_all : B.rem_elt -> (arg_frame * app_frame) ann_expr option
+  val prog_all : B.rem_prog -> (E.typ * arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (E.typ * arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (E.typ * arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (E.typ * arg_frame * app_frame) ann_expr option
 end = struct
   open Option.Monad_infix
   (* There doesn't seem to be a way to carry the typ component along without
      just reworking the translation pass itself. *)
   let prog (remora: (E.typ * arg_frame * app_frame) E.ann_prog)
-      : (arg_frame * app_frame) ann_prog =
-    remora |> E.annot_prog_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_prog
-  let prog_all (remora: B.rem_prog) : (arg_frame * app_frame) ann_prog option =
+      : (E.typ * arg_frame * app_frame) ann_prog =
+    remora |> of_erased_prog
+  let prog_all (remora: B.rem_prog)
+      : (E.typ * arg_frame * app_frame) ann_prog option =
     remora |> E.Passes.prog_all >>| prog
 
   let defn (remora: (E.typ * arg_frame * app_frame) E.ann_defn)
-      : (arg_frame * app_frame) ann_defn =
-    remora |> E.annot_defn_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_defn
-  let defn_all (remora: B.rem_defn) : (arg_frame * app_frame) ann_defn option =
+      : (E.typ * arg_frame * app_frame) ann_defn =
+    remora |> of_erased_defn
+  let defn_all (remora: B.rem_defn)
+      : (E.typ * arg_frame * app_frame) ann_defn option =
     remora |> E.Passes.defn_all >>| defn
 
   let expr (remora: (E.typ * arg_frame * app_frame) E.ann_expr)
-      : (arg_frame * app_frame) ann_expr =
-    remora |> E.annot_expr_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_expr
-  let expr_all (remora: B.rem_expr) : (arg_frame * app_frame) ann_expr option =
+      : (E.typ * arg_frame * app_frame) ann_expr =
+    remora |> of_erased_expr
+  let expr_all (remora: B.rem_expr)
+      : (E.typ * arg_frame * app_frame) ann_expr option =
     remora |> E.Passes.expr_all >>| expr
 
   let elt (remora: (E.typ * arg_frame * app_frame) E.ann_elt)
-      : (arg_frame * app_frame) ann_expr =
-    remora |> E.annot_elt_fmap ~f:(fun (_,r,p) -> (r,p)) |> of_erased_elt
-  let elt_all (remora: B.rem_elt) : (arg_frame * app_frame) ann_expr option =
+      : (E.typ * arg_frame * app_frame) ann_expr =
+    remora |> of_erased_elt
+  let elt_all (remora: B.rem_elt)
+      : (E.typ * arg_frame * app_frame) ann_expr option =
     remora |> E.Passes.elt_all >>| elt
 end

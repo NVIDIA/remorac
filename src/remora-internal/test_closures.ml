@@ -31,6 +31,8 @@ open Closures
 module MR = Map_replicate_ast;;
 module B = Basic_ast;;
 module U = OUnit2;;
+open Frame_notes
+module E = Erased_ast;;
 
 let unary_lam =
   Expr (Cls
@@ -47,7 +49,7 @@ let unary_lam =
            env = Expr (Tup [])})
 
 
-let mr_wrap e = MR.AExpr ("", e)
+let mr_wrap e = MR.AExpr ((E.TUnknown, NotArg, NotApp), e)
 
 let escaping_function =
   mr_wrap (MR.Let {MR.vars = ["f"];

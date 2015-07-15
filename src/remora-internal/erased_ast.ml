@@ -43,7 +43,9 @@ type srt = B.srt with sexp
 (* TODO: This TUnknown thing seems wrong. If a type cannot be picked, it should
    probably just be None, and we should use typ option if we may be unable to
    pick a particular type. Conversion from a basic AST will require type
-   annotations (not just frame annotations). *)
+   annotations (not just frame annotations).
+   Coming back to this later, TUnknown is now used for ascribing a "type" to
+   index variables in a later pass. *)
 
 (* Type information is reduced down to only what is used by the dynamic
    semantics. Universal types are replaced by their bodies. Base types carry no
@@ -60,6 +62,7 @@ type typ =
 | TDProd of ((var * srt) list * typ)
 | TDSum of ((var * srt) list * typ)
 | TArray of (idx * typ)
+| TTuple of typ list
 with sexp
 let rec of_typ (t: B.typ) : typ =
   match t with
@@ -71,12 +74,21 @@ let rec of_typ (t: B.typ) : typ =
   | B.TAll (_, body) -> of_typ body
   | B.TArray (shp, elt) -> TArray (shp, of_typ elt)
 
+(* Build an (erased) array type with a given shape around a given type. *)
+let rec typ_of_shape (idxs : idx list) (elt : typ) : typ =
+  List.fold_right ~f:(fun i t -> TArray (i, t)) ~init:elt idxs
+
 let rec shape_of_typ (t: typ) =
   match t with
   | TArray (s, t) ->
     Typechecker.expand_shape s >>= fun s_ ->
     shape_of_typ t >>= fun t_ ->
     List.append s_ t_ |> Option.return
+  | _ -> None
+let rec elt_of_typ (t: typ) : typ option =
+  match t with
+  | TArray (_, ((TArray (_, t)) as subarray)) -> elt_of_typ subarray
+  | TArray (_, t) -> Some t
   | _ -> None
 
 (* TODO: It may be better to just roll the annotation field into this structure

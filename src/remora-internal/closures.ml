@@ -29,6 +29,7 @@
 open Core.Std
 module MR = Map_replicate_ast;;
 module B = Basic_ast;;
+module E = Erased_ast;;
 open Frame_notes
 
 type var = Basic_ast.var with sexp
@@ -83,10 +84,12 @@ type 'annot ann_defn = ADefn of var * 'annot ann_expr with sexp
 type 'annot ann_prog =
   AProg of 'annot * 'annot ann_defn list * 'annot ann_expr with sexp
 
+(* Closure-convert a MapRep AST. *)
 let rec expr_of_maprep
     (bound_vars: var list)
-    (MR.AExpr (a, e): 'a MR.ann_expr)
-    : 'a ann_expr =
+    (MR.AExpr ((typ, arg, app) as a, e):
+       (E.typ * arg_frame * app_frame) MR.ann_expr)
+    : (E.typ * arg_frame * app_frame) ann_expr =
   AExpr (a,
          match e with
          | MR.App {MR.fn = f; MR.args = a} ->
@@ -114,16 +117,36 @@ let rec expr_of_maprep
            (* Exclude variables bound by this lambda from the resulting free
               variable list. *)
            and bound_for_body = List.append v bound_vars in
-           let free_vars = MR.aexpr_free_vars bound_for_body b in
+           (* Need the list of free vars and their types in order to construct
+              the type of the environment. *)
+           let typed_free_vars =
+             List.map ~f:(fun (MR.AExpr ((t,_,_), e)) ->
+               match e with | MR.Var n -> Some (t, n) | _ -> None)
+               (MR.get_annotated_free_vars bound_for_body b) |>
+                   List.filter_opt in
+           let free_vars = List.map ~f:snd typed_free_vars
+           and fv_types = List.map ~f:fst typed_free_vars in
+           (* Figure out the type of the env component. *)
+           let env_typ = E.TTuple fv_types in
+           (* Pick apart the function type so it can be built up with one
+              extra arg type (for the env) and the output type can be used for
+              the new Lam's body. *)
+           let (out_typ, code_typ) = (match typ with
+             | E.TFun (i, o) -> (o, E.TFun (env_typ :: i, o))
+             | _ -> (E.TUnknown, typ)) in
            Cls {code = AExpr
-               (a,
+               ((code_typ, arg, app),
                 Lam {MR.bindings = env_name :: v;
                      MR.body = AExpr
-                    (a, Let {MR.vars = free_vars;
-                             MR.bound = AExpr (a, Var env_name);
-                             MR.body = expr_of_maprep bound_for_body b})});
-                env = AExpr (a, Tup (List.map ~f:(fun v -> AExpr (a, Var v))
-                                       free_vars))}
+                    ((out_typ, arg, app),
+                     Let {MR.vars = free_vars;
+                          MR.bound = AExpr ((env_typ, arg, app),
+                                            Var env_name);
+                          MR.body = expr_of_maprep bound_for_body b})});
+                env = AExpr ((env_typ, arg, app),
+                             Tup (List.map ~f:(fun (t,v) ->
+                               AExpr ((t, NotArg, NotApp), Var v))
+                                    typed_free_vars))}
          | MR.Var v -> Var v
          | MR.Int i -> Int i
          | MR.Float f -> Float f
@@ -245,14 +268,17 @@ let rec expr_hoist_lambdas
   | Var _ | Int _ | Float _ | Bool _ -> return expr
 
 module Passes : sig
-  val prog : 'a MR.ann_prog -> 'a ann_prog
-  val defn : 'a MR.ann_defn -> 'a ann_defn
-  val expr : 'a MR.ann_expr -> 'a ann_expr
+  val prog : (E.typ * arg_frame * app_frame) MR.ann_prog
+    -> (E.typ * arg_frame * app_frame) ann_prog
+  val defn : (E.typ * arg_frame * app_frame) MR.ann_defn
+    -> (E.typ * arg_frame * app_frame) ann_defn
+  val expr : (E.typ * arg_frame * app_frame) MR.ann_expr
+    -> (E.typ * arg_frame * app_frame) ann_expr
 
-  val prog_all : B.rem_prog -> (arg_frame * app_frame) ann_prog option
-  val defn_all : B.rem_defn -> (arg_frame * app_frame) ann_defn option
-  val expr_all : B.rem_expr -> (arg_frame * app_frame) ann_expr option
-  val elt_all : B.rem_elt -> (arg_frame * app_frame) ann_expr option
+  val prog_all : B.rem_prog -> (E.typ * arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (E.typ * arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (E.typ * arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (E.typ * arg_frame * app_frame) ann_expr option
 end = struct
   let lib_vars = []
   let prog remora = remora |> prog_of_maprep ~bound_vars:lib_vars

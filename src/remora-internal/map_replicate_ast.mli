@@ -69,29 +69,33 @@ val op_name_plus : var
 val op_name_append : var
 
 val of_erased_idx :
-  E.idx -> (arg_frame * app_frame) ann_expr
+  E.idx -> (E.typ * arg_frame * app_frame) ann_expr
 
 val of_nested_shape :
-  E.idx tup_t -> (arg_frame * app_frame) ann_expr
+  E.idx tup_t -> (E.typ * arg_frame * app_frame) ann_expr
 
 val defunctionalized_map :
-  fn:(arg_frame * app_frame) ann_expr ->
-  args:(arg_frame * app_frame) ann_expr tup_t ->
-  shp:(arg_frame * app_frame) ann_expr ->
-  frame:(arg_frame * app_frame) ann_expr ->
-  (arg_frame * app_frame) ann_expr expr_form
+  fn:(E.typ * arg_frame * app_frame) ann_expr ->
+  args:(E.typ * arg_frame * app_frame) ann_expr tup_t ->
+  shp:(E.typ * arg_frame * app_frame) ann_expr ->
+  frame:(E.typ * arg_frame * app_frame) ann_expr ->
+  (E.typ * arg_frame * app_frame) ann_expr expr_form
 
 val of_erased_expr :
-  (arg_frame * app_frame) E.ann_expr -> (arg_frame * app_frame) ann_expr
+  (E.typ * arg_frame * app_frame) E.ann_expr
+  -> (E.typ * arg_frame * app_frame) ann_expr
 
 val of_erased_elt :
-  (arg_frame * app_frame) E.ann_elt -> (arg_frame * app_frame) ann_expr
+  (E.typ * arg_frame * app_frame) E.ann_elt
+  -> (E.typ * arg_frame * app_frame) ann_expr
 
 val of_erased_defn :
-  (arg_frame * app_frame) E.ann_defn -> (arg_frame * app_frame) ann_defn
+  (E.typ * arg_frame * app_frame) E.ann_defn
+  -> (E.typ * arg_frame * app_frame) ann_defn
 
 val of_erased_prog :
-  (arg_frame * app_frame) E.ann_prog -> (arg_frame * app_frame) ann_prog
+  (E.typ * arg_frame * app_frame) E.ann_prog
+  -> (E.typ * arg_frame * app_frame) ann_prog
 
 val annot_expr_drop : 'a ann_expr -> expr
 val annot_defn_drop : 'a ann_defn -> defn
@@ -100,23 +104,25 @@ val annot_prog_drop : 'a ann_prog -> prog
 val get_free_vars :
   var list -> (var list -> 'a -> var list) -> 'a expr_form -> var list
 val aexpr_free_vars : var list -> 'a ann_expr -> var list
+val get_annotated_free_vars :
+  var list -> 'a ann_expr -> 'a ann_expr list
 
 module Passes : sig
   val prog :
     (E.typ * arg_frame * app_frame) E.ann_prog
-    -> (arg_frame * app_frame) ann_prog
+    -> (E.typ * arg_frame * app_frame) ann_prog
   val defn :
     (E.typ * arg_frame * app_frame) E.ann_defn
-    -> (arg_frame * app_frame) ann_defn
+    -> (E.typ * arg_frame * app_frame) ann_defn
   val expr :
     (E.typ * arg_frame * app_frame) E.ann_expr
-    -> (arg_frame * app_frame) ann_expr
+    -> (E.typ * arg_frame * app_frame) ann_expr
   val elt :
     (E.typ * arg_frame * app_frame) E.ann_elt
-    -> (arg_frame * app_frame) ann_expr
+    -> (E.typ * arg_frame * app_frame) ann_expr
 
-  val prog_all : B.rem_prog -> (arg_frame * app_frame) ann_prog option
-  val defn_all : B.rem_defn -> (arg_frame * app_frame) ann_defn option
-  val expr_all : B.rem_expr -> (arg_frame * app_frame) ann_expr option
-  val elt_all : B.rem_elt -> (arg_frame * app_frame) ann_expr option
+  val prog_all : B.rem_prog -> (E.typ * arg_frame * app_frame) ann_prog option
+  val defn_all : B.rem_defn -> (E.typ * arg_frame * app_frame) ann_defn option
+  val expr_all : B.rem_expr -> (E.typ * arg_frame * app_frame) ann_expr option
+  val elt_all : B.rem_elt -> (E.typ * arg_frame * app_frame) ann_expr option
 end
