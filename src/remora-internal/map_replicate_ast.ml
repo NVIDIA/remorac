@@ -110,23 +110,21 @@ let op_name_append : var = "append"
 (* Convert a type-erased AST into a Map/Replicate AST. The input AST is expected
    to have annotations for type, application, and argument frames. *)
 let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
-(* AExpr ((E.TUnknown, NotArg, NotApp), *)
-       match i with
-       | B.INat n -> AExpr ((E.TBase, NotArg, NotApp), Int n)
+  match i with
+  | B.INat n -> AExpr ((E.TBase, NotArg, NotApp), Int n)
   (* TODO: Make sure the programmer doesn't shadow this operator. *)
-       | B.ISum (i1, i2) ->
-         AExpr ((E.TBase, NotArg, NotApp),
-         App {fn = AExpr ((sum_t, NotArg, NotApp),
-                          Var op_name_plus);
-              args = [of_erased_idx i1; of_erased_idx i2]})
-       | B.IShape idxs ->
-         AExpr ((shape_t, NotArg, NotApp),
-                Vec {dims = [List.length idxs];
-                     elts = List.map ~f:of_erased_idx idxs})
-       (* We no longer see the checking environment. Maybe indices should
-          have been sort-annotated from the beginning? *)
-       | B.IVar name -> AExpr ((E.TUnknown, NotArg, NotApp), Var ("__I_" ^ name))
-(* ) *)
+  | B.ISum (i1, i2) ->
+    AExpr ((E.TBase, NotArg, NotApp),
+           App {fn = AExpr ((sum_t, NotArg, NotApp),
+                            Var op_name_plus);
+                args = [of_erased_idx i1; of_erased_idx i2]})
+  | B.IShape idxs ->
+    AExpr ((shape_t, NotArg, NotApp),
+           Vec {dims = [List.length idxs];
+                elts = List.map ~f:of_erased_idx idxs})
+  (* We no longer see the checking environment. Maybe indices should
+     have been sort-annotated from the beginning? *)
+  | B.IVar name -> AExpr ((E.TUnknown, NotArg, NotApp), Var ("__I_" ^ name))
 
 let of_nested_shape (idxs: E.idx list)
     : (E.typ * arg_frame * app_frame) ann_expr =
@@ -157,7 +155,10 @@ let defunctionalized_map
      TODO: if not array of functions, what do? *)
   let (in_cell_typs, out_cell_typ) = (match E.elt_of_typ fn_typ with
     | Some E.TFun ((_, _) as t) -> t
-    | _ -> ([E.TUnknown], E.TUnknown)) in
+    | _ ->
+      print_string
+        "Warning: generated Lam with non-TFun type annotation";
+      ([E.TUnknown], E.TUnknown)) in
   let fn_cell_typ = E.TFun (in_cell_typs, out_cell_typ) in
   let apply_lam =
     (* If we're defunctionalizing an array of (t1 ... -> t2), then

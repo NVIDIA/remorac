@@ -133,7 +133,10 @@ let rec expr_of_maprep
               the new Lam's body. *)
            let (out_typ, code_typ) = (match typ with
              | E.TFun (i, o) -> (o, E.TFun (env_typ :: i, o))
-             | _ -> (E.TUnknown, typ)) in
+             | _ ->
+               print_string
+                 "Warning: generated Lam with non-TFun type annotation";
+               (E.TUnknown, typ)) in
            Cls {code = AExpr
                ((code_typ, arg, app),
                 Lam {MR.bindings = env_name :: v;
