@@ -75,7 +75,7 @@ let rec of_typ (t: B.typ) : typ =
   | B.TArray (shp, elt) -> TArray (shp, of_typ elt)
 
 (* Build an (erased) array type with a given shape around a given type. *)
-let rec typ_of_shape (idxs : idx list) (elt : typ) : typ =
+let typ_of_shape (idxs : idx list) (elt : typ) : typ =
   List.fold_right ~f:(fun i t -> TArray (i, t)) ~init:elt idxs
 
 let rec shape_of_typ (t: typ) =
@@ -87,7 +87,7 @@ let rec shape_of_typ (t: typ) =
   | _ -> None
 let rec elt_of_typ (t: typ) : typ option =
   match t with
-  | TArray (_, ((TArray (_, t)) as subarray)) -> elt_of_typ subarray
+  | TArray (_, ((TArray (_, _)) as subarray)) -> elt_of_typ subarray
   | TArray (_, t) -> Some t
   | _ -> None
 
@@ -162,7 +162,7 @@ let rec of_expr (B.RExpr e) =
   | B.ILam (bindings, body) -> EExpr (ILam (bindings, of_expr body))
   | B.Arr (dims, elts) -> EExpr (Arr (dims, List.map ~f:of_elt elts))
   | B.Var v -> EExpr (Var v)
-  | B.Pack (idxs, value, t_decl) -> EExpr (Pack (idxs, of_expr value))
+  | B.Pack (idxs, value, _) -> EExpr (Pack (idxs, of_expr value))
   | B.Unpack (ivars, v, dsum, body) ->
     EExpr (Unpack (ivars, v, of_expr dsum, of_expr body))
 and of_elt (B.RElt l) =
@@ -185,7 +185,7 @@ let of_prog (B.RProg (defns, expr)) =
    procedure. In the default case, the outer annotation is kept, and the inner
    annotation is dropped. *)
 let rec of_ann_expr
-    ?(merge = (fun (parent: 'annot) (child: 'annot) -> parent))
+    ?(merge = const)
     (B.AnnRExpr (a, e): 'annot B.ann_expr)
     : 'annot ann_expr =
   match e with
@@ -193,7 +193,7 @@ let rec of_ann_expr
     AnnEExpr (a, App (of_ann_expr ~merge:merge fn,
                       List.map ~f:(of_ann_expr ~merge:merge) args,
                       TUnknown))
-  | B.TApp (fn, args) ->
+  | B.TApp (fn, _) ->
     let AnnEExpr (sub_annot, new_node) = of_ann_expr ~merge:merge fn in
     AnnEExpr (merge a sub_annot, new_node)
   | B.TLam (_, body) ->
@@ -205,7 +205,7 @@ let rec of_ann_expr
   | B.Var v -> AnnEExpr (a, Var v)
   | B.Arr (dims, elts)
     -> AnnEExpr (a, Arr (dims, List.map ~f:(of_ann_elt ~merge:merge) elts))
-  | B.Pack (idxs, value, t_decl)
+  | B.Pack (idxs, value, _)
     -> AnnEExpr (a, Pack (idxs, of_ann_expr ~merge:merge value))
   | B.Unpack (ivars, v, dsum, body)
     -> AnnEExpr (a,
@@ -213,7 +213,7 @@ let rec of_ann_expr
                          of_ann_expr ~merge:merge dsum,
                          of_ann_expr ~merge:merge body))
 and of_ann_elt
-    ?(merge = (fun a1 a2 -> a1))
+    ?(merge = const)
     (B.AnnRElt (a, l): 'annot B.ann_elt)
     : 'annot ann_elt =
   AnnEElt
@@ -225,9 +225,9 @@ and of_ann_elt
      | B.Lam (bindings, body) ->
        Lam (List.map ~f:fst bindings, of_ann_expr ~merge:merge body)
      | B.Expr e -> Expr (of_ann_expr ~merge:merge e))
-let of_ann_defn ?(merge = (fun a1 a2 -> a1)) (B.AnnRDefn (n, t, v)) =
+let of_ann_defn ?(merge = const) (B.AnnRDefn (n, t, v)) =
   AnnEDefn (n, of_typ t, of_ann_expr ~merge:merge v)
-let of_ann_prog ?(merge = (fun a1 a2 -> a1)) (B.AnnRProg (annot, defns, expr)) =
+let of_ann_prog ?(merge = const) (B.AnnRProg (annot, defns, expr)) =
   AnnEProg (annot,
             List.map ~f:(of_ann_defn ~merge:merge) defns,
             of_ann_expr ~merge:merge expr)
@@ -275,8 +275,8 @@ let rec annot_expr_merge
   let new_annot = f annot1 annot2
   and (new_expr: ('c ann_expr, 'c ann_elt) expr_form option) =
     match (expr1, expr2) with
-    (* We are *not* making sure typ1 = typ2. *)
-    | (App (fn1, args1, typ1), App (fn2, args2, typ2)) ->
+    (* We are *not* making sure both have the same type annotation. *)
+    | (App (fn1, args1, typ1), App (fn2, args2, _)) ->
       annot_expr_merge f fn1 fn2 >>= fun new_fn ->
       map2 ~f:(annot_expr_merge f) args1 args2 >>= fun merged ->
       Option.all merged >>= fun new_args ->
@@ -400,7 +400,7 @@ end = struct
     (* Isolate the type annotation on the AST, and translate the Basic_ast.typ
        annotations into Erased_ast.typ annotations. *)
     let typ_erased = annot_prog_fmap
-      (fun (t,_,_) -> of_typ t)
+      ~f:(fun (t,_,_) -> of_typ t)
       typ_arg_app_erased in
     (* Use the type annotations to produce correct App type declarations. *)
     let typ_fixed = fix_prog_app_type typ_erased in
@@ -416,7 +416,7 @@ end = struct
   let defn ast =
     let typ_arg_app_erased = of_ann_defn ast in
     let typ_erased = annot_defn_fmap
-      (fun (t,_,_) -> of_typ t)
+      ~f:(fun (t,_,_) -> of_typ t)
       typ_arg_app_erased in
     let typ_fixed = fix_defn_app_type typ_erased in
     Option.value_exn
@@ -429,7 +429,7 @@ end = struct
   let expr ast =
     let typ_arg_app_erased = of_ann_expr ast in
     let typ_erased = annot_expr_fmap
-      (fun (t,_,_) -> of_typ t)
+      ~f:(fun (t,_,_) -> of_typ t)
       typ_arg_app_erased in
     let typ_fixed = fix_expr_app_type typ_erased in
     Option.value_exn
@@ -442,7 +442,7 @@ end = struct
   let elt ast =
     let typ_arg_app_erased = of_ann_elt ast in
     let typ_erased = annot_elt_fmap
-      (fun (t,_,_) -> of_typ t)
+      ~f:(fun (t,_,_) -> of_typ t)
       typ_arg_app_erased in
     let typ_fixed = fix_elt_app_type typ_erased in
     Option.value_exn

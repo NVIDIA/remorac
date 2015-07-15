@@ -567,8 +567,6 @@ end = struct
     match (typ_of_rem_elt e) with
     | Some elt_typ -> assert_typ_equal elt_typ check_typ
     | None -> U.assert_failure "expr is ill-typed"
-  let assert_ill_typed (e: rem_elt) =
-    U.assert_equal (typ_of_rem_elt e) None
   open Test_basic_ast
   let test_6 _ =
     assert_elt_type

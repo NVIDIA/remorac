@@ -195,7 +195,7 @@ let rec canonicalize_typ = function
   | TArray (IVar v, elt_typ) ->
     canonicalize_typ elt_typ >>= fun elt_typ_ ->
     TArray (IVar v, elt_typ_) |> return
-  | TArray ((IShape [dim]) as outer_dim, elt_typ) as reuse ->
+  | TArray ((IShape [_]) as outer_dim, elt_typ) as reuse ->
     canonicalize_typ elt_typ >>= fun elt_canon ->
     (* If this type is already in canonical form, we can avoid reconstructing
        its whole subtree by reusing it. *)
@@ -314,7 +314,7 @@ let prefix_max (lsts: 'a list list) : 'a list option =
 (* Clear out some needless nesting. Not strictly necessary. *)
 let rec merge_scalar (t: typ) : typ =
   match t with
-  | TArray (IShape [], (TArray (shp, elt) as inner)) ->
+  | TArray (IShape [], (TArray _ as inner)) ->
     merge_scalar inner
   | TArray (shp, elt) -> TArray (shp, merge_scalar elt)
   | _ -> t
@@ -529,7 +529,7 @@ let annot_prog_type
     (typs: kind env)
     (vars: typ env)
     (prog: 'a ann_prog) : pt_prog =
-  let AnnRProg (annot, defns, expr) = prog in
+  let AnnRProg (_, defns, expr) = prog in
   let defn_type_env_entries =
     List.map ~f:(fun (AnnRDefn (n, t, _)) -> (n, t)) defns in
   let annot_defns =
@@ -543,7 +543,7 @@ let annot_prog_type
      environment. *)
   let well_formed_defn_types =
     List.filter_map
-      ~f:(fun (AnnRDefn (n, t_specified, AnnRExpr (t_checked, body))) ->
+      ~f:(fun (AnnRDefn (n, t_specified, AnnRExpr (t_checked, _))) ->
         t_checked >>= fun _ ->
         return (n, t_specified))
       annot_defns in

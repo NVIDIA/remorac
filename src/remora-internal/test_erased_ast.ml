@@ -136,22 +136,22 @@ end = struct
   let assert_expr_erasure pre post _ =
     U.assert_equal post
       (pre |> B.annot_expr_init ~init:()
-           |> E.of_ann_expr
+           |> E.of_ann_expr ~merge:const
            |> E.annot_expr_drop)
   let assert_elt_erasure pre post _ =
     U.assert_equal post
       (pre |> B.annot_elt_init ~init:()
-           |> E.of_ann_elt
+           |> E.of_ann_elt ~merge:const
            |> E.annot_elt_drop)
   let assert_defn_erasure pre post _ =
     U.assert_equal post
       (pre |> B.annot_defn_init ~init:()
-           |> E.of_ann_defn
+           |> E.of_ann_defn ~merge:const
            |> E.annot_defn_drop)
   let assert_prog_erasure pre post _ =
     U.assert_equal post
       (pre |> B.annot_prog_init ~init:()
-           |> E.of_ann_prog
+           |> E.of_ann_prog ~merge:const
            |> E.annot_prog_drop)
   let tests =
     let open OUnit2 in

@@ -124,7 +124,7 @@ let rec annot_expr_arg_expansion
      Option.return (ArgFrame {expansion = missing_dims; frame = my_frame}))
         |> (Option.value ~default:NotArg) in
   match expr with
-  | App ((AnnRExpr ((_, fn_type), fn_expr_form)) as fn, args) ->
+  | App ((AnnRExpr ((_, fn_type), _)) as fn, args) ->
     let arg_expected_typs = match elt_of_typ fn_type with
       | (Some (TFun (typs, _))) -> typs
       (* In a well-typed AST, the array in function position should have
@@ -146,7 +146,7 @@ let rec annot_expr_arg_expansion
                                     ~f_elt:annot_elt_arg_expansion expr))
 
 and annot_elt_arg_expansion
-    ((AnnRElt ((_, node_type), elt)): (app_frame * typ) ann_elt)
+    ((AnnRElt (_, elt)): (app_frame * typ) ann_elt)
     : arg_frame ann_elt =
   match elt with
   | Expr e -> AnnRElt (NotArg,
@@ -167,7 +167,7 @@ let annot_defn_arg_expansion
     ~outer_frame:NotApp e)
 
 let annot_prog_arg_expansion
-    ((AnnRProg (annot, defns, expr)): (app_frame * typ) ann_prog)
+    ((AnnRProg (_, defns, expr)): (app_frame * typ) ann_prog)
     : arg_frame ann_prog =
   let (AnnRExpr (new_annot, _)) as new_expr =
     annot_expr_arg_expansion

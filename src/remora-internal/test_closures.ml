@@ -144,15 +144,15 @@ let rec alpha_eqv
   match (e1, e2) with
   | (App {closure = c1; args = a1}, App {closure = c2; args = a2}) ->
     (alpha_eqv c1 c2) && (List.length a1 = List.length a2) &&
-      (List.for_all2_exn a1 a2 alpha_eqv)
+      (List.for_all2_exn ~f:alpha_eqv a1 a2)
   | (Vec {MR.dims = d1; MR.elts = l1}, Vec {MR.dims = d2; MR.elts = l2}) ->
     (d1 = d2) && (List.length l1 = List.length l2) &&
-      (List.for_all2_exn l1 l2 alpha_eqv)
+      (List.for_all2_exn ~f:alpha_eqv l1 l2)
   | (Map {MR.frame = fr1; MR.fn = fn1; MR.args = a1; MR.shp = s1},
      Map {MR.frame = fr2; MR.fn = fn2; MR.args = a2; MR.shp = s2}) ->
     (alpha_eqv fr1 fr2) && (alpha_eqv fn1 fn2) &&
       (List.length a1 = List.length a2) &&
-      (List.for_all2_exn a1 a2 alpha_eqv) &&
+      (List.for_all2_exn ~f:alpha_eqv a1 a2) &&
       (alpha_eqv s1 s2)
   | (Rep {MR.arg = a1; MR.old_frame = o1; MR.new_frame = n1},
      Rep {MR.arg = a2; MR.old_frame = o2; MR.new_frame = n2}) ->
@@ -161,7 +161,7 @@ let rec alpha_eqv
     (* Tuples must have the same arity. *)
     (List.length l1 = List.length l2) &&
       (* Corresponding elements must be alpha-equivalent. *)
-      (List.for_all2_exn l1 l2 alpha_eqv)
+      (List.for_all2_exn ~f:alpha_eqv l1 l2)
   | (Let {MR.vars = v1; MR.bound = bn1; MR.body = bd1},
      Let {MR.vars = v2; MR.bound = bn2; MR.body = bd2}) ->
     (* Both lets must bind the same number of variables. *)
@@ -234,7 +234,7 @@ let rec lambda_free (AExpr (_, e): 'a ann_expr) : bool =
   | Var _ | Int _ | Float _ | Bool _ -> true
   (* It's ok to define a function, but make sure no lambdas appear in the
      function body. *)
-let defn_lambda_free (ADefn (n, (AExpr (_, e) as expr)): 'a ann_defn) : bool =
+let defn_lambda_free (ADefn (_, (AExpr (_, e) as expr)): 'a ann_defn) : bool =
   match e with
   | Lam {MR.bindings = _; MR.body = b} -> lambda_free b
   | _ -> lambda_free expr

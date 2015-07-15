@@ -184,7 +184,7 @@ let rec of_erased_expr
          | E.Var name -> Var name
          | E.ILam (bindings, body) ->
            Lam {bindings = List.map
-               ~f:(fun (name, sort) -> ("__I_" ^ name)) bindings;
+               ~f:(fun (name, _) -> ("__I_" ^ name)) bindings;
                 body = of_erased_expr body}
          | E.IApp (fn, args) -> App {fn = of_erased_expr fn;
                                      args = List.map ~f:of_erased_idx args}
@@ -194,7 +194,8 @@ let rec of_erased_expr
          | E.Unpack (ivars, v, dsum, body) -> Let {vars = v :: ivars;
                                                    bound = of_erased_expr dsum;
                                                    body = of_erased_expr body}
-         (* TODO: Some call to Option.value_exn in this branch is failing. *)
+         (* TODO: Some call to Option.value_exn in this branch was failing.
+            Is it fixed? *)
          | E.App (fn, args, shp) ->
            let app_frame_shape = of_nested_shape (idxs_of_app_frame_exn app) in
            (* How to lift an argument into the application form's frame. *)
