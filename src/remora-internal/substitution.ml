@@ -63,7 +63,7 @@ let rec idx_into_idx (sub: idx subst) (i: idx) : idx =
   | INat _ as i_ -> i_
   | IShape idxs -> IShape (List.map ~f:(idx_into_idx sub) idxs)
   | ISum (idx1, idx2) -> ISum (idx_into_idx sub idx1, idx_into_idx sub idx2)
-  | IVar v -> Option.value ~default:(IVar v) (List.Assoc.find sub v)
+  | IVar (name, _) as v -> Option.value ~default:v (List.Assoc.find sub name)
 
 let rec idx_into_typ (sub: idx subst) (t: typ) : typ =
   match t with

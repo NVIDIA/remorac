@@ -31,7 +31,7 @@ open Basic_ast
 
 let scalar t = TArray (IShape [], t)
 let vec l t = TArray (IShape [l], t)
-let vecv l t = vec (IVar l) t
+let vecv l t = vec (nvar l) t
 let vecn l t = vec (INat l) t
 let func ins out = scalar (TFun (ins, out))
 
@@ -42,7 +42,7 @@ let arith_binary t =
 let compare t =
   func [scalar t; scalar t] (scalar TBool)
 
-let any i t = TArray (IVar i, TVar t)
+let any i t = TArray (svar i, TVar t)
 
 let assoc_all names typ = List.map ~f:(fun n -> (n,typ)) names
 
@@ -86,15 +86,17 @@ let head_tail =
   assoc_all ["head"; "tail"]
     (TDProd (["l", SNat; "s", SShape],
              TAll (["t"],
-                   func [TArray (IShape [ISum (IVar "l", INat 1)], any)] any)))
+                   func [TArray (IShape [ISum (nvar "l",
+                                               INat 1)], any)] any)))
 
 let behead_curtail =
   let any = any "s" "t" in
   assoc_all ["head"; "tail"]
     (TDProd (["l", SNat; "s", SShape],
              TAll (["t"],
-                   func [TArray (IShape [ISum (IVar "l", INat 1)], any)]
-                     (TArray (IShape [IVar "l"], any)))))
+                   func [TArray (IShape [ISum (nvar "l",
+                                               INat 1)], any)]
+                     (TArray (IShape [nvar "l"], any)))))
 
 let take_drop =
   let any = any "s" "t" in
@@ -108,7 +110,7 @@ let take_witness =
   assoc_all ["take*"; "take-right*"]
     (TDProd (["l", SNat; "m", SNat; "s", SShape],
              TAll (["u"; "t"], func [vecv "l" (TVar "u");
-                                     vec (ISum (IVar "l", IVar "m")) any]
+                                     vec (ISum (nvar "l", nvar "m")) any]
                (vecv "l" any))))
 
 let drop_witness =
@@ -116,7 +118,7 @@ let drop_witness =
   assoc_all ["drop*"; "drop-right*"]
     (TDProd (["l", SNat; "m", SNat; "s", SShape],
              TAll (["u"; "t"], func [vecv "l" (TVar "u");
-                                     vec (ISum (IVar "l", IVar "m")) any]
+                                     vec (ISum (nvar "l", nvar "m")) any]
                (vecv "m" any))))
 
 let reverse =
@@ -136,7 +138,7 @@ let append =
   ["append", TDProd (["l", SNat; "m", SNat; "s", SShape],
                      TAll (["t"],
                            func [vecv "l" any; vecv "m" any]
-                             (vec (ISum (IVar "l", IVar "m")) any)))]
+                             (vec (ISum (nvar "l", nvar "m")) any)))]
 
 let itemize =
   let any = any "s" "t" in
@@ -216,7 +218,7 @@ let filter =
 let iota =
   ["iota", TDProd (["l", SNat],
                    func [vecv "l" TInt]
-                     (TDSum (["s", SShape], TArray (IVar "s", TInt))))]
+                     (TDSum (["s", SShape], TArray (svar "s", TInt))))]
 
 let iota_vector =
   ["iotavec", func [scalar TInt] (TDSum (["l", SNat], vecv "l" TInt))]
@@ -224,17 +226,17 @@ let iota_vector =
 let iota_witness =
   ["iota*", TDProd (["s", SShape],
                     TAll (["t"],
-                          func [any "s" "t"] (TArray (IVar "s", TInt))))]
+                          func [any "s" "t"] (TArray (svar "s", TInt))))]
 
 let read name t =
-  [name, func [] (TDSum (["s", SShape], TArray (IVar "s", t)))]
+  [name, func [] (TDSum (["s", SShape], TArray (svar "s", t)))]
 let readvec name t =
   [name, func [] (TDSum (["l", SNat], vecv "l" t))]
 let readscal name t =
   [name, func [] t]
 let write name t =
   [name, TDProd (["s", SShape],
-                 func [TArray (IVar "s", t)] TBool)]
+                 func [TArray (svar "s", t)] TBool)]
 
 let read_basetype =
   List.join [read "read_i" TInt;

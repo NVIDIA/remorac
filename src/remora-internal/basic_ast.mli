@@ -33,14 +33,18 @@ type var = bytes with sexp
 val gensym_reset : unit -> unit
 val gensym : string -> var
 
+type srt = SNat | SShape with sexp
+
 type idx =
 | INat of int
 | IShape of idx list
 | ISum of idx * idx
-| IVar of var
+| IVar of var * srt option
 with sexp
 
-type srt = SNat | SShape with sexp
+val ivar : var -> idx
+val nvar : var -> idx
+val svar : var -> idx
 
 type typ =
 | TFloat

@@ -68,6 +68,8 @@ type 'annot ann_prog =
 val op_name_plus : var
 val op_name_append : var
 
+val idx_name_mangle : var -> B.srt option -> var
+
 val of_erased_idx :
   E.idx -> (E.typ * arg_frame * app_frame) ann_expr
 

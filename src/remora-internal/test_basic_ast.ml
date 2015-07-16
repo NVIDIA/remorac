@@ -142,7 +142,7 @@ let type_app = RExpr (TApp (type_abst, [TBool]))
 let index_abst =
   RExpr (ILam (["d", SNat],
                RExpr (Arr ([],
-                           [RElt (Lam ([("l", TArray (IShape [IVar "d"],
+                           [RElt (Lam ([("l", TArray (IShape [ivar "d"],
                                                       TInt))],
                                        RExpr (Var "l")))]))))
 
@@ -151,7 +151,7 @@ let index_app = RExpr (IApp (index_abst, [INat 6]))
 let dep_sum_create =
   RExpr (Pack ([INat 3],
                RExpr (Arr ([3], [RElt (Int 0); RElt (Int 1); RElt (Int 2)])),
-               TDSum ([("d", SNat)], TArray (IShape [IVar "d"], TInt))))
+               TDSum ([("d", SNat)], TArray (IShape [ivar "d"], TInt))))
 
 
 let dep_sum_project =
@@ -160,17 +160,17 @@ let dep_sum_project =
 
 let remora_compose =
   let inner_lam =
-    RElt (Lam (["x", TArray (IVar "s1", TVar "alpha")],
+    RElt (Lam (["x", TArray (ivar "s1", TVar "alpha")],
                RExpr (App (RExpr (Var "g"),
                            [(RExpr (App (RExpr (Var "f"),
                                          [RExpr (Var "x")])))])))) in
   let outer_lam =
     RElt (Lam (["f", TArray (IShape [],
-                             TFun ([TArray (IVar "s1", TVar "alpha")],
-                                   TArray (IVar "s2", TVar "beta")));
+                             TFun ([TArray (ivar "s1", TVar "alpha")],
+                                   TArray (ivar "s2", TVar "beta")));
                 "g", TArray (IShape [],
-                             TFun ([TArray (IVar "s2", TVar "beta")],
-                                   TArray (IVar "s3", TVar "gamma")))],
+                             TFun ([TArray (ivar "s2", TVar "beta")],
+                                   TArray (ivar "s3", TVar "gamma")))],
                scalar_of_elt inner_lam)) in
   let type_lam =
     RExpr (TLam (["alpha"; "beta"; "gamma"],
@@ -180,8 +180,8 @@ let remora_compose =
 
 let fork_compose =
   let inner_lam =
-    RElt (Lam (["x", TArray (IVar "s-li", TVar "t-li");
-                "y", TArray (IVar "s-ri", TVar "t-ri")],
+    RElt (Lam (["x", TArray (ivar "s-li", TVar "t-li");
+                "y", TArray (ivar "s-ri", TVar "t-ri")],
                RExpr (App (RExpr (Var "f-j"),
                            [RExpr (App (RExpr (Var "f-l"),
                                         [RExpr (Var "x")]));
@@ -189,15 +189,15 @@ let fork_compose =
                                         [RExpr (Var "y")]))])))) in
   let outer_lam =
     RElt (Lam (["f-l", TArray (IShape [],
-                               TFun ([TArray (IVar "s-li", TVar "t-li")],
-                                     TArray (IVar "s-lo", TVar "t-lo")));
+                               TFun ([TArray (ivar "s-li", TVar "t-li")],
+                                     TArray (ivar "s-lo", TVar "t-lo")));
                 "f-r", TArray (IShape [],
-                               TFun ([TArray (IVar "s-ri", TVar "t-ri")],
-                                     TArray (IVar "s-ro", TVar "t-ro")));
+                               TFun ([TArray (ivar "s-ri", TVar "t-ri")],
+                                     TArray (ivar "s-ro", TVar "t-ro")));
                 "f-j", TArray (IShape [],
-                               TFun ([TArray (IVar "s-lo", TVar "t-lo");
-                                      TArray (IVar "s-ro", TVar "t-ro")],
-                                     TArray (IVar "s-jo", TVar "t-jo")))],
+                               TFun ([TArray (ivar "s-lo", TVar "t-lo");
+                                      TArray (ivar "s-ro", TVar "t-ro")],
+                                     TArray (ivar "s-jo", TVar "t-jo")))],
                scalar_of_elt inner_lam)) in
   let type_lam =
     RExpr (TLam (["t-li"; "t-lo"; "t-ri"; "t-ro"; "t-jo"],
@@ -216,16 +216,16 @@ let define_compose =
                 TArray (IShape [],
                         TFun ([TArray
                                   (IShape [],
-                                   TFun ([TArray (IVar "s1", TVar "alpha")],
-                                         TArray (IVar "s2", TVar "beta")));
+                                   TFun ([TArray (ivar "s1", TVar "alpha")],
+                                         TArray (ivar "s2", TVar "beta")));
                                TArray
                                  (IShape [],
-                                  TFun ([TArray (IVar "s2", TVar "beta")],
-                                        TArray (IVar "s3", TVar "gamma")))],
+                                  TFun ([TArray (ivar "s2", TVar "beta")],
+                                        TArray (ivar "s3", TVar "gamma")))],
                               TArray
                                 (IShape [],
-                                 TFun ([TArray (IVar "s1", TVar "alpha")],
-                                       TArray (IVar "s3", TVar "gamma")))))))),
+                                 TFun ([TArray (ivar "s1", TVar "alpha")],
+                                       TArray (ivar "s3", TVar "gamma")))))))),
          remora_compose)
 
 let use_compose =

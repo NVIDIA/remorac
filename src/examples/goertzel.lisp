@@ -14,10 +14,10 @@
            (TAll (wt)
                  (TArray
                   (IShape ())
-                  (TFun ((TArray (IShape ((IVar wl))) (TVar wt))
+                  (TFun ((TArray (IShape ((IVar wl (Some SNat)))) (TVar wt))
                          (TArray (IShape ()) TFloat)
                          (TArray (IShape ()) TFloat))
-                        (TArray (IShape ((IVar wl))) TFloat)))))
+                        (TArray (IShape ((IVar wl (Some SNat)))) TFloat)))))
    (RExpr
     (ILam
      ((wl SNat))
@@ -32,7 +32,7 @@
            (Lam
             ;; Maybe using '&' suffix to identify witness args is
             ;; a useful naming convention?
-            ((length& (TArray (IShape ((IVar wl))) (TVar wt)))
+            ((length& (TArray (IShape ((IVar wl (Some SNat)))) (TVar wt)))
              (freq (TArray (IShape ()) TFloat))
              (phase (TArray (IShape ()) TFloat)))
             (RExpr
@@ -54,7 +54,7 @@
                                       (RExpr
                                        (IApp
                                         (RExpr (Var iota*))
-                                        ((IShape ((IVar wl))))))
+                                        ((IShape ((IVar wl (Some SNat)))))))
                                       ((TVar wt))))
                                     ((RExpr (Var length&))))))))
                      (RExpr
@@ -154,8 +154,8 @@
     ((len SNat))
     (TArray (IShape ())
             (TFun ((TArray (IShape ()) TFloat)
-                   (TArray (IShape ((IVar len))) TFloat))
-                  (TArray (IShape ((IVar len))) TFloat))))
+                   (TArray (IShape ((IVar len (Some SNat)))) TFloat))
+                  (TArray (IShape ((IVar len (Some SNat)))) TFloat))))
    (RExpr
     (ILam
      ((len SNat))
@@ -165,7 +165,7 @@
        ((RElt
          (Lam
           ((freq (TArray (IShape ()) TFloat))
-           (signal (TArray (IShape ((IVar len))) TFloat)))
+           (signal (TArray (IShape ((IVar len (Some SNat)))) TFloat)))
           (RExpr
            (App
             (RExpr
@@ -183,7 +183,7 @@
                  (RExpr
                   (IApp
                    (RExpr (Var scanl))
-                   ((IVar len)
+                   ((IVar len (Some SNat))
                     (IShape ((INat 2)))
                     (IShape ()))))
                  (TFloat TFloat)))
@@ -207,16 +207,17 @@
           (RExpr (App (RExpr (Var readvec_f)) ()))
           (RExpr
            (Pack
-            ((IVar l))
+            ((IVar l (Some SNat)))
             (RExpr
              (App
               (RExpr
                (IApp
                 (RExpr (Var goertzel-iir))
-                ((IVar l))))
+                ((IVar l (Some SNat)))))
               ((RExpr (Var freq))
                (RExpr (Var signal)))))
             (TDSum ((sig-length SNat))
-                   (TArray (IShape ((IVar sig-length))) TFloat)))))))))))
+                   (TArray (IShape ((IVar sig-length (Some SNat))))
+                           TFloat)))))))))))
    ((RExpr (App (RExpr (Var readscal_f)) ()))))))
 

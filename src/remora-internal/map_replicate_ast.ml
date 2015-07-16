@@ -35,7 +35,7 @@ module T = Typechecker;;
 (* TODO: Want a new form of "erased type" that can handle indices, which may
    be int vectors of unknown length. For now, using E.TArray (IVar "", TUnknown)
    for this. *)
-let shape_t = E.TArray (B.IVar "", E.TBase)
+let shape_t = E.TArray (B.svar "", E.TBase)
 let sum_t = E.TFun ([E.TBase; E.TBase], E.TBase)
 let append_t = E.TFun ([E.TBase; E.TBase], E.TBase)
 
@@ -107,6 +107,12 @@ type 'annot ann_prog =
 let op_name_plus : var = "+"
 let op_name_append : var = "append"
 
+(* Mangle an index name at a given sort *)
+let idx_name_mangle (name : var) (sort : B.srt option) : var =
+  ("__I_" ^
+      (Option.value_exn sort |> B.sexp_of_srt |> Sexp.to_string) ^
+      ":" ^ name)
+
 (* Convert a type-erased AST into a Map/Replicate AST. The input AST is expected
    to have annotations for type, application, and argument frames. *)
 let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
@@ -124,7 +130,8 @@ let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
                 elts = List.map ~f:of_erased_idx idxs})
   (* We no longer see the checking environment. Maybe indices should
      have been sort-annotated from the beginning? *)
-  | B.IVar name -> AExpr ((E.TUnknown, NotArg, NotApp), Var ("__I_" ^ name))
+  | B.IVar (name, sort) ->
+    AExpr ((E.TUnknown, NotArg, NotApp), Var (idx_name_mangle name sort))
 
 let of_nested_shape (idxs: E.idx list)
     : (E.typ * arg_frame * app_frame) ann_expr =
@@ -157,7 +164,7 @@ let defunctionalized_map
     | Some E.TFun ((_, _) as t) -> t
     | _ ->
       print_string
-        "Warning: generated Lam with non-TFun type annotation";
+        "MapRep Warning: generated Lam with non-TFun type annotation\n";
       ([E.TUnknown], E.TUnknown)) in
   let fn_cell_typ = E.TFun (in_cell_typs, out_cell_typ) in
   let apply_lam =
@@ -185,7 +192,8 @@ let rec of_erased_expr
          | E.Var name -> Var name
          | E.ILam (bindings, body) ->
            Lam {bindings = List.map
-               ~f:(fun (name, _) -> ("__I_" ^ name)) bindings;
+               ~f:(fun (name, sort) -> (idx_name_mangle name (Some sort)))
+               bindings;
                 body = of_erased_expr body}
          | E.IApp (fn, args) -> App {fn = of_erased_expr fn;
                                      args = List.map ~f:of_erased_idx args}

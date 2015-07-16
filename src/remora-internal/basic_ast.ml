@@ -39,16 +39,21 @@ let gensym (v: string) : var =
   and _ = gensym_counter := 1 + id_number
   in new_name;;
 
+(* Remora index sorts *)
+type srt = SNat | SShape with sexp
+
 (* Remora indices *)
 type idx =
 | INat of int
 | IShape of idx list
 | ISum of idx * idx
-| IVar of var
+| IVar of var * srt option
 with sexp
 
-(* Remora index sorts *)
-type srt = SNat | SShape with sexp
+(* Shorthand for constructing index var nodes *)
+let ivar n = IVar (n, None)
+let nvar n = IVar (n, Some SNat)
+let svar n = IVar (n, Some SShape)
 
 (* Remora types *)
 type typ =

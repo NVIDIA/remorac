@@ -50,20 +50,21 @@ let unary_lam =
 
 
 let mr_wrap e = MR.AExpr ((E.TUnknown, NotArg, NotApp), e)
+let fn_wrap e = MR.AExpr ((E.TFun ([], E.TUnknown), NotArg, NotApp), e)
 
 let escaping_function =
   mr_wrap (MR.Let {MR.vars = ["f"];
                 MR.bound = mr_wrap
       (MR.Let {MR.vars = ["x"];
             MR.bound = mr_wrap (MR.Tup [mr_wrap (MR.Int 5)]);
-            MR.body = (mr_wrap
+            MR.body = (fn_wrap
                          (MR.Lam {bindings = ["l"];
                                   MR.body = mr_wrap
-                             (MR.App {MR.fn = mr_wrap (MR.Var "+");
+                             (MR.App {MR.fn = fn_wrap (MR.Var "+");
                                       MR.args = [mr_wrap (MR.Var "l");
                                                  mr_wrap (MR.Var "x")]})}))});
                 MR.body = (mr_wrap
-                             (MR.App {MR.fn = mr_wrap (MR.Var "f");
+                             (MR.App {MR.fn = fn_wrap (MR.Var "f");
                                       MR.args = [mr_wrap (MR.Int 6)]}))})
 let converted =
   Expr
@@ -89,29 +90,29 @@ let destr_dsum =
   mr_wrap
     (MR.Let {MR.vars = ["l";"n"];
              MR.bound = mr_wrap
-        (MR.App {MR.fn = mr_wrap (MR.Var "iota");
+        (MR.App {MR.fn = fn_wrap (MR.Var "iota");
                  MR.args = [mr_wrap
                                (MR.Vec {MR.dims = [];
                                         MR.elts = [mr_wrap (MR.Int 5)]})]});
              MR.body = mr_wrap
         (MR.Tup [mr_wrap (MR.Var "l");
                  mr_wrap (MR.Map {MR.frame = mr_wrap (MR.Var "l");
-                                  MR.fn = mr_wrap
+                                  MR.fn = fn_wrap
                      (MR.Lam {MR.bindings = ["x"];
                               MR.body = mr_wrap
-                         (MR.App {MR.fn = mr_wrap (MR.Var "+");
+                         (MR.App {MR.fn = fn_wrap (MR.Var "+");
                                   MR.args = []})});
                                   MR.args = [];
                                   MR.shp = mr_wrap (MR.Var "l")})])})
 
 let vec_scal_add =
-  mr_wrap
+  fn_wrap
     (MR.Lam {MR.bindings = ["l"];
-             MR.body = mr_wrap
+             MR.body = fn_wrap
         (MR.Lam {MR.bindings = ["x";"y"];
                  MR.body = mr_wrap
             (MR.Map {MR.frame = mr_wrap (MR.Var "l");
-                     MR.fn = mr_wrap (MR.Var "+");
+                     MR.fn = fn_wrap (MR.Var "+");
                      MR.args =
                 [mr_wrap (MR.Var "x");
                  mr_wrap (MR.Rep {MR.arg = mr_wrap (MR.Var "y");

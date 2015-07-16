@@ -103,30 +103,31 @@ EExpr
                               TUnknown))))))))
 
 let define_compose =
-EDefn ("compose",
-       TDProd
-         (["s1", B.SShape; "s2", B.SShape; "s3", B.SShape],
-          TArray (B.IShape [],
-                  TFun
-                    ([(TArray (B.IShape [],
-                               TFun ([TArray (B.IVar "s1", TVar)],
-                                     TArray (B.IVar "s2", TVar))));
-                      (TArray (B.IShape [],
-                               TFun ([TArray (B.IVar "s2", TVar)],
-                                     TArray (B.IVar "s3", TVar))))],
-                     TArray (B.IShape [],
-                             TFun ([TArray (B.IVar "s1", TVar)],
-                                   TArray (B.IVar "s3", TVar)))))),
-       remora_compose)
+  EDefn ("compose",
+         TDProd
+           (["s1", B.SShape; "s2", B.SShape; "s3", B.SShape],
+            TArray (B.IShape [],
+                    TFun
+                      ([(TArray (B.IShape [],
+                                 TFun ([TArray (B.ivar "s1", TVar)],
+                                       TArray (B.ivar "s2", TVar))));
+                        (TArray (B.IShape [],
+                                 TFun ([TArray (B.ivar "s2", TVar)],
+                                       TArray (B.ivar "s3", TVar))))],
+                       TArray (B.IShape [],
+                               TFun ([TArray (B.ivar "s1", TVar)],
+                                     TArray (B.ivar "s3", TVar)))))),
+         remora_compose)
 
 let use_compose =
-EExpr (App (EExpr (App (EExpr (IApp (EExpr (Var "compose"),
-                                     [B.IShape []; B.IShape []; B.IShape []])),
-                        [scalar_of_elt unary_lambda;
-                         scalar_of_elt unary_lambda],
-                        TUnknown)),
-            [scalar_of_elt_form (Int 0)],
-            TUnknown))
+  EExpr
+    (App (EExpr (App (EExpr (IApp (EExpr (Var "compose"),
+                                   [B.IShape []; B.IShape []; B.IShape []])),
+                      [scalar_of_elt unary_lambda;
+                       scalar_of_elt unary_lambda],
+                      TUnknown)),
+          [scalar_of_elt_form (Int 0)],
+          TUnknown))
 
 let prog_compose = EProg ([define_compose], use_compose)
 

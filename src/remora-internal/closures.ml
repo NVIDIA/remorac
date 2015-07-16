@@ -135,7 +135,7 @@ let rec expr_of_maprep
              | E.TFun (i, o) -> (o, E.TFun (env_typ :: i, o))
              | _ ->
                print_string
-                 "Warning: generated Lam with non-TFun type annotation";
+                 "CConv Warning: generated Lam with non-TFun type annotation\n";
                (E.TUnknown, typ)) in
            Cls {code = AExpr
                ((code_typ, arg, app),

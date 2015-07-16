@@ -32,6 +32,7 @@ open Core.Option
 open Core.Option.Monad_infix
 open Substitution
 
+(* TODO: Place correct sort annotations on index vars *)
 
 type 'a env = (var, 'a) List.Assoc.t with sexp
 
@@ -57,8 +58,16 @@ let rec srt_of_idx (idxs: srt env) (i: idx) : srt option =
     let d_srts = List.map ~f:(srt_of_idx idxs) [left; right]
     in if (List.for_all d_srts ~f:((=) (Some SNat)))
       then Some SNat else None
-  | IVar name -> List.Assoc.find idxs name
+  | IVar (name, _) -> List.Assoc.find idxs name
 ;;
+
+let rec fix_srt_decls (idxs: srt env) (i: idx) : idx =
+  match i with
+  | INat _ -> i
+  | ISum (left, right) -> ISum (fix_srt_decls idxs left,
+                                fix_srt_decls idxs right)
+  | IShape dims -> IShape (List.map ~f:(fix_srt_decls idxs) dims)
+  | IVar (name, _) -> IVar (name, List.Assoc.find idxs name)
 
 
 let rec kind_of_typ (idxs: srt env)
@@ -141,7 +150,7 @@ let rec elt_of_typ (t: typ) : typ option =
 let rec summands_of_dim (i: idx) : int * var list =
   match i with
   | INat n -> (n, [])
-  | IVar n -> (0, [n])
+  | IVar (n, _) -> (0, [n])
   | ISum (s1, s2) ->
     let (i1, v1) = summands_of_dim s1
     and (i2, v2) = summands_of_dim s2 in
@@ -189,12 +198,12 @@ let rec canonicalize_typ = function
   | TArray (IShape [], elt_typ) ->
     canonicalize_typ elt_typ >>= fun elt_typ_ ->
     TArray (IShape [], elt_typ_) |> return
-  | TArray (IVar v, (TArray _ as elt)) ->
+  | TArray (IVar _ as v, (TArray _ as elt)) ->
     canonicalize_typ elt >>= fun sub_array ->
-    TArray (IVar v, sub_array) |> return
-  | TArray (IVar v, elt_typ) ->
+    TArray (v, sub_array) |> return
+  | TArray (IVar _ as v, elt_typ) ->
     canonicalize_typ elt_typ >>= fun elt_typ_ ->
-    TArray (IVar v, elt_typ_) |> return
+    TArray (v, elt_typ_) |> return
   | TArray ((IShape [_]) as outer_dim, elt_typ) as reuse ->
     canonicalize_typ elt_typ >>= fun elt_canon ->
     (* If this type is already in canonical form, we can avoid reconstructing
@@ -219,11 +228,11 @@ let typ_equal (t1: typ) (t2: typ) : bool =
         let new_body1 =
           idx_into_typ (List.zip_exn
                           (List.map ~f:fst bind1)
-                          (List.map ~f:(fun x -> (IVar x)) new_vars)) body1
+                          (List.map ~f:(fun x -> (ivar x)) new_vars)) body1
         and new_body2 =
           idx_into_typ (List.zip_exn
                           (List.map ~f:fst bind2)
-                          (List.map ~f:(fun x -> (IVar x)) new_vars)) body2
+                          (List.map ~f:(fun x -> (ivar x)) new_vars)) body2
         in typ_equal_ new_body1 new_body2
     | (TAll (bind1, body1), TAll (bind2, body2)) ->
       if (List.length bind1) <> (List.length bind2) then false
@@ -439,7 +448,8 @@ and annot_expr_type
                  idx_args sorts)
               (idx_into_typ idx_subst tbody)
           | _ -> None
-        in (result_type, IApp (fn_annot, idx_args))
+        in (result_type, IApp (fn_annot,
+                               List.map ~f:(fix_srt_decls idxs) idx_args))
       | ILam (bindings, body) ->
         let body_annot =
           annot_expr_type (env_update bindings idxs) typs vars body in
@@ -469,9 +479,11 @@ and annot_expr_type
       | Var name as v_ -> (List.Assoc.find vars name, v_)
       (* If the type declaration on a Pack form is not a dependent sum, there
          is no way to type it. *)
+      (* TODO: Update sort annotations on new_idxs *)
       | Pack (new_idxs, AnnRExpr (a, body), TDSum (ivars, t)) ->
         let AnnRExpr (body_typ, _) as body_annot =
           (annot_expr_type idxs typs vars (AnnRExpr (a, body)))
+        and fixed_new_idxs = List.map ~f:(fix_srt_decls idxs) new_idxs
         in  (* Does every new_idx have the specified sort? *)
         if (List.map ~f:(srt_of_idx idxs) new_idxs)
           = (List.map ~f:(Fn.compose Option.some snd) ivars)
@@ -484,8 +496,8 @@ and annot_expr_type
             && (Option.value_exn body_typ)
             = (idx_into_typ (List.zip_exn (List.map ~f:fst ivars) new_idxs) t)
         then (Some (TDSum (ivars, t)),
-              Pack (new_idxs, body_annot, TDSum (ivars, t)))
-        else (None, Pack (new_idxs, body_annot, TDSum (ivars, t)))
+              Pack (fixed_new_idxs, body_annot, TDSum (ivars, t)))
+        else (None, Pack (fixed_new_idxs, body_annot, TDSum (ivars, t)))
       | Pack (new_idxs, body, bad_type) ->
         (None, Pack (new_idxs, annot_expr_type idxs typs vars body, bad_type))
       | Unpack (ivars, v, dsum, body) ->

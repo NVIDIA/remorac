@@ -263,7 +263,7 @@ let type_abst = Expr (Vec {dims = [];
                            elts = [Expr (Lam {bindings = ["x"];
                                               body = Expr (Var "x")})]})
 let index_abst =
-  Expr (Lam {bindings = ["__I_d"];
+  Expr (Lam {bindings = [idx_name_mangle "d" (Some B.SNat)];
              body = Expr (Vec {dims = [];
                                elts = [Expr (Lam {bindings = ["l"];
                                                   body = Expr (Var "l")})]})})
