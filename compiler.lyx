@@ -603,7 +603,7 @@ end{plstx}
 
 \begin_layout Standard
 Within the compiler, types and type indices are defined as algebraic data
- types:
+ types (with an optional sort tag on index variables):
 \begin_inset listings
 inline false
 status collapsed
@@ -630,7 +630,7 @@ type idx =
 
 \begin_layout Plain Layout
 
-| IVar of var
+| IVar of var * srt option
 \end_layout
 
 \begin_layout Plain Layout
@@ -1240,6 +1240,7 @@ idx_arg
 ivar
 \family default
 .
+ Index variable sort tags are updated as needed.
 \end_layout
 
 \begin_layout Subsection*
@@ -1358,6 +1359,11 @@ TDSum ([(ivar, s) ...], t)
 \end_inset
 
  in abstract notation.
+ As in the 
+\family typewriter
+IApp
+\family default
+ case, index variables' sort tags are corrected.
 \end_layout
 
 \begin_layout Subsection*
@@ -2310,6 +2316,53 @@ alize the application by generating an
 apply
 \family default
  function to map instead.
+\end_layout
+
+\begin_layout Standard
+Some translation cases generate multiple AST nodes, such as the
+\family typewriter
+ 
+\begin_inset Formula ${\tt {MAP}}$
+\end_inset
+
+
+\family default
+ and 
+\begin_inset Formula $\lambda$
+\end_inset
+
+ produced from an application form.
+ While the 
+\begin_inset Formula ${\tt {MAP}}$
+\end_inset
+
+ has the same type as the source term, the 
+\begin_inset Formula $\lambda$
+\end_inset
+
+ has a function type generated from 
+\begin_inset Formula $e$
+\end_inset
+
+'s type.
+ An index translated into an expression gets a type corresponding to its
+ original sort (
+\family typewriter
+Int
+\family default
+ for 
+\family typewriter
+Nat
+\family default
+ and 
+\family typewriter
+TArray
+\family default
+ for 
+\family typewriter
+Shape
+\family default
+).
 \end_layout
 
 \begin_layout Section
