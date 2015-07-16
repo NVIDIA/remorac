@@ -131,7 +131,13 @@ let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
   (* We no longer see the checking environment. Maybe indices should
      have been sort-annotated from the beginning? *)
   | B.IVar (name, sort) ->
-    AExpr ((E.TUnknown, NotArg, NotApp), Var (idx_name_mangle name sort))
+    let typ = match sort with
+      | Some B.SNat -> E.TBase
+      | Some B.SShape ->
+        E.TArray (B.IShape [], E.TBase)
+      | None -> E.TUnknown
+    in
+    AExpr ((typ, NotArg, NotApp), Var (idx_name_mangle name sort))
 
 let of_nested_shape (idxs: E.idx list)
     : (E.typ * arg_frame * app_frame) ann_expr =
