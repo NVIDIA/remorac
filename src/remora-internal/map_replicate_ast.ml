@@ -35,9 +35,9 @@ module T = Typechecker;;
 (* TODO: Want a new form of "erased type" that can handle indices, which may
    be int vectors of unknown length. For now, using E.TArray (IVar "", TUnknown)
    for this. *)
-let shape_t = E.TArray (B.svar "", E.TBase)
-let sum_t = E.TFun ([E.TBase; E.TBase], E.TBase)
-let append_t = E.TFun ([E.TBase; E.TBase], E.TBase)
+let shape_t = E.TArray (B.svar "", E.TInt)
+let sum_t = E.TFun ([E.TInt; E.TInt], E.TInt)
+let append_t = E.TFun ([E.TInt; E.TInt], E.TInt)
 
 type var = Basic_ast.var with sexp
 
@@ -117,10 +117,10 @@ let idx_name_mangle (name : var) (sort : B.srt option) : var =
    to have annotations for type, application, and argument frames. *)
 let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
   match i with
-  | B.INat n -> AExpr ((E.TBase, NotArg, NotApp), Int n)
+  | B.INat n -> AExpr ((E.TInt, NotArg, NotApp), Int n)
   (* TODO: Make sure the programmer doesn't shadow this operator. *)
   | B.ISum (i1, i2) ->
-    AExpr ((E.TBase, NotArg, NotApp),
+    AExpr ((E.TInt, NotArg, NotApp),
            App {fn = AExpr ((sum_t, NotArg, NotApp),
                             Var op_name_plus);
                 args = [of_erased_idx i1; of_erased_idx i2]})
@@ -132,9 +132,9 @@ let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
      have been sort-annotated from the beginning? *)
   | B.IVar (name, sort) ->
     let typ = match sort with
-      | Some B.SNat -> E.TBase
+      | Some B.SNat -> E.TInt
       | Some B.SShape ->
-        E.TArray (B.IShape [], E.TBase)
+        E.TArray (B.IShape [], E.TInt)
       | None -> E.TUnknown
     in
     AExpr ((typ, NotArg, NotApp), Var (idx_name_mangle name sort))

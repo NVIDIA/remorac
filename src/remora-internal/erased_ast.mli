@@ -36,7 +36,9 @@ type idx = B.idx with sexp
 type srt = B.srt with sexp
 
 type typ =
-| TBase
+| TInt
+| TFloat
+| TBool
 | TVar
 | TUnknown
 | TFun of (typ list * typ)

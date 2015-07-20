@@ -54,7 +54,9 @@ type srt = B.srt with sexp
    and are noted as such. There are no more bindings for those variables to
    refer to. *)
 type typ =
-| TBase
+| TInt
+| TFloat
+| TBool
 (* Variables must represent array types (of indeterminate shape). *)
 | TVar
 | TUnknown
@@ -66,7 +68,9 @@ type typ =
 with sexp
 let rec of_typ (t: B.typ) : typ =
   match t with
-  | B.TFloat | B.TInt | B.TBool -> TBase
+  | B.TFloat -> TFloat
+  | B.TInt -> TInt
+  | B.TBool -> TBool
   | B.TVar _ -> TVar
   | B.TDProd (bindings, body) -> TDProd (bindings, of_typ body)
   | B.TDSum (bindings, body) -> TDSum (bindings, of_typ body)
