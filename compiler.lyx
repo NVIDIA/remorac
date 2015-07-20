@@ -1600,7 +1600,8 @@ shape
 \emph default
  of the result array, so only the shape-related portion of a type is computation
 ally relevant.
- The type of the atoms in an array does not matter.
+ The type of the atoms in an array does not matter for semantic correctness
+ but is retained to allow better code generation.
 \end_layout
 
 \begin_layout Standard
@@ -1811,7 +1812,7 @@ alttype
 
 	::= 
 \backslash
-erasedbasetype
+basetype
 \end_layout
 
 \begin_layout Plain Layout
