@@ -68,6 +68,18 @@ let rec fix_srt_decls (idxs: srt env) (i: idx) : idx =
                                 fix_srt_decls idxs right)
   | IShape dims -> IShape (List.map ~f:(fix_srt_decls idxs) dims)
   | IVar (name, _) -> IVar (name, List.Assoc.find idxs name)
+let rec fix_srt_decls_t (idxs: srt env) (t: typ) : typ =
+  match t with
+  | TArray (shp, elt) -> TArray (fix_srt_decls idxs shp,
+                                 fix_srt_decls_t idxs elt)
+  | TFun (ins, out) -> TFun (List.map ~f:(fix_srt_decls_t idxs) ins,
+                             fix_srt_decls_t idxs out)
+  | TDProd (ivars, body) ->
+    TDProd (ivars, fix_srt_decls_t (env_update ivars idxs) body)
+  | TDSum (ivars, body) ->
+    TDSum (ivars, fix_srt_decls_t (env_update ivars idxs) body)
+  | TAll (tvars, body) -> TAll (tvars, fix_srt_decls_t idxs body)
+  | TVar _ | TFloat | TBool | TInt -> t
 
 
 let rec kind_of_typ (idxs: srt env)
@@ -356,18 +368,21 @@ let rec annot_elt_type
       | Float _ as e_ -> (Some TFloat, e_)
       | Bool _ as e_ -> (Some TBool, e_)
       | Lam (bindings, body)
-        -> (match (annot_expr_type idxs typs (env_update bindings vars)
+        -> let bindings =
+             List.map ~f:(fun (n, t) ->
+               (n, fix_srt_decls_t idxs t)) bindings in
+           (match (annot_expr_type idxs typs (env_update bindings vars)
                      body) with
-        | AnnRExpr (Some t, _) as well_typed
-          -> if (List.for_all
-                   ~f:(fun (bind_type: typ) ->
-                     Some () = kind_of_typ idxs typs bind_type)
-                   (List.map ~f:snd bindings))
-            then (Some (TFun (List.map ~f:snd bindings, t)),
-                  Lam (bindings, well_typed))
-            else (None, Lam (bindings, well_typed))
-        | AnnRExpr (None, _) as ill_typed
-          -> (None, Lam (bindings, ill_typed)))
+           | AnnRExpr (Some t, _) as well_typed
+             -> if (List.for_all
+                      ~f:(fun (bind_type: typ) ->
+                        Some () = kind_of_typ idxs typs bind_type)
+                      (List.map ~f:snd bindings))
+               then (Some (TFun (List.map ~f:snd bindings, t)),
+                     Lam (bindings, well_typed))
+               else (None, Lam (bindings, well_typed))
+           | AnnRExpr (None, _) as ill_typed
+             -> (None, Lam (bindings, ill_typed)))
       | Expr e -> let AnnRExpr (t_opt, _) as subexpr =
                     (annot_expr_type idxs typs vars e) in
                   (t_opt, Expr subexpr)
@@ -534,7 +549,8 @@ let annot_defn_type (type a)
     (vars: typ env)
     (defn: a ann_defn) : typ option ann_defn =
   let AnnRDefn (name, typ_specified, value) = defn in
-  AnnRDefn (name, typ_specified, annot_expr_type idxs typs vars value)
+  AnnRDefn (name, (fix_srt_decls_t idxs typ_specified),
+            annot_expr_type idxs typs vars value)
 
 let annot_prog_type
     (idxs: srt env)
@@ -546,10 +562,7 @@ let annot_prog_type
     List.map ~f:(fun (AnnRDefn (n, t, _)) -> (n, t)) defns in
   let annot_defns =
     List.map
-      ~f:(fun (AnnRDefn (n, t, e)) ->
-        AnnRDefn (n, t,
-                  annot_expr_type idxs typs
-                    (env_update defn_type_env_entries vars) e))
+      ~f:(annot_defn_type idxs typs (env_update defn_type_env_entries vars))
       defns in
   (* Gather together all of the well-formed definitions into the type
      environment. *)

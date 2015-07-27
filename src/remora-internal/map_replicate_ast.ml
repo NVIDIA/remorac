@@ -110,7 +110,8 @@ let op_name_append : var = "append"
 (* Mangle an index name at a given sort *)
 let idx_name_mangle (name : var) (sort : B.srt option) : var =
   ("__I_" ^
-      (Option.value_exn sort |> B.sexp_of_srt |> Sexp.to_string) ^
+      (Option.value_exn ~message:("Bad sort declaration on " ^ name) sort |>
+          B.sexp_of_srt |> Sexp.to_string) ^
       ":" ^ name)
 
 (* Convert a type-erased AST into a Map/Replicate AST. The input AST is expected

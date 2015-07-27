@@ -272,6 +272,37 @@ let lift_curried_add =
 let prog_curried_add =
   RProg ([define_curried_add], lift_curried_add)
 
+let expr_vec_add =
+  RExpr
+    (ILam (["l", SNat],
+           RExpr
+             (Arr ([],
+                   [RElt (Lam (["xs", TArray (IShape [IVar ("l", None)], TInt);
+                                "ys", TArray (IShape [IVar ("l", None)], TInt)],
+                               RExpr (App (RExpr (Var "+"),
+                                           [RExpr (Var "xs");
+                                            RExpr (Var "ys")]))))]))))
+let defn_vec_add =
+  RDefn ("v+",
+         TDProd (["l", SNat],
+                 TArray (IShape [],
+                         TFun ([TArray (IShape [IVar ("l", None)], TInt);
+                                TArray (IShape [IVar ("l", None)], TInt)],
+                               TArray (IShape [IVar ("l", None)], TInt)))),
+         expr_vec_add)
+let prog_vec_add =
+  RProg ([defn_vec_add],
+         (RExpr (App ((RExpr (IApp (RExpr (Var "v+"),
+                                    [INat 3]))),
+                      [RExpr (Arr ([3],
+                                   [RElt (Int 10);
+                                    RElt (Int 20);
+                                    RElt (Int 30)]));
+                       RExpr (Arr ([2; 3],
+                                   [RElt (Int 1); RElt (Int 2);
+                                    RElt (Int 3); RElt (Int 4);
+                                    RElt (Int 5); RElt (Int 6)]))]))))
+
 (* For any rem_expr, adding blank annotations and then dropping annotations
    should lead back to the same rem_expr *)
 module UnitTests : sig
