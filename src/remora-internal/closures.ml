@@ -273,6 +273,19 @@ let rec expr_hoist_lambdas
     (AExpr (a, Var new_global) |> return)
   | Var _ | Int _ | Float _ | Bool _ -> return expr
 
+let defn_hoist_lambdas
+    (ADefn (n, e) as d) : 'a ann_defn list =
+  match e with
+  | AExpr (_, Lam _) -> [d]
+  | _ -> let (new_body, new_defns) = expr_hoist_lambdas e in
+         ADefn (n, new_body) :: new_defns
+
+let prog_hoist_lambdas
+    (AProg (annot, defns, expr)) : 'a ann_prog =
+  let (new_expr, expr_defns) = expr_hoist_lambdas expr
+  and new_defns = List.join (List.map ~f:defn_hoist_lambdas defns) in
+  AProg (annot, List.append new_defns expr_defns, new_expr)
+
 module Passes : sig
   val prog : (E.typ * arg_frame * app_frame) MR.ann_prog
     -> (E.typ * arg_frame * app_frame) ann_prog
@@ -287,7 +300,9 @@ module Passes : sig
   val elt_all : B.rem_elt -> (E.typ * arg_frame * app_frame) ann_expr option
 end = struct
   let lib_vars = []
-  let prog remora = remora |> prog_of_maprep ~bound_vars:lib_vars
+  let prog remora = remora
+    |> prog_of_maprep ~bound_vars:lib_vars
+    |> prog_hoist_lambdas
   let defn remora = remora |> defn_of_maprep lib_vars
   let expr remora = remora |> expr_of_maprep lib_vars
   open Option.Monad_infix
