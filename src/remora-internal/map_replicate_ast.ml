@@ -140,6 +140,22 @@ let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
     in
     AExpr ((typ, NotArg, NotApp), Var (idx_name_mangle name sort))
 
+(* Collapse dependent types down to functions/tuples. *)
+let typ_of_srt = function
+  | B.SNat -> E.TInt
+  | B.SShape -> E.TArray (B.IShape [], E.TInt)
+let rec of_erased_typ (t: E.typ) : E.typ =
+  match t with
+  | E.TDProd (bindings, body) ->
+    E.TFun (List.map ~f:(fun (n, s) -> typ_of_srt s) bindings,
+            of_erased_typ body)
+  | E.TDSum (bindings, body) ->
+    E.TTuple (of_erased_typ body ::
+                List.map ~f:(fun (n, s) -> typ_of_srt s) bindings)
+  | E.TTuple ts -> E.TTuple (List.map ~f:of_erased_typ ts)
+  | E.TArray (s, t) -> E.TArray (s, of_erased_typ t)
+  | E.TFun _ | E.TVar | E.TInt | E.TBool | E.TFloat | E.TUnknown -> t
+
 let of_nested_shape (idxs: E.idx list)
     : (E.typ * arg_frame * app_frame) ann_expr =
   List.map ~f:of_erased_idx idxs
@@ -194,7 +210,7 @@ let rec of_erased_expr
     (E.AnnEExpr ((typ, arg, app), e):
        (E.typ * arg_frame * app_frame) E.ann_expr)
     : (E.typ * arg_frame * app_frame) ann_expr =
-  AExpr ((typ, arg, app),
+  AExpr ((of_erased_typ typ, arg, app),
          match e with
          | E.Var name -> Var name
          | E.ILam (bindings, body) ->
