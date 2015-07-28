@@ -65,6 +65,7 @@ type typ =
 | TDSum of ((var * srt) list * typ)
 | TArray of (idx * typ)
 | TTuple of typ list
+| TShape
 with sexp
 let rec of_typ (t: B.typ) : typ =
   match t with

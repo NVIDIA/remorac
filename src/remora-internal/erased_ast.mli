@@ -46,6 +46,7 @@ type typ =
 | TDSum of ((var * srt) list * typ)
 | TArray of (idx * typ)
 | TTuple of typ list
+| TShape
 with sexp
 
 val shape_of_typ : typ -> idx list option

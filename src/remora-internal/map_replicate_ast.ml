@@ -135,7 +135,8 @@ let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
     let typ = match sort with
       | Some B.SNat -> E.TInt
       | Some B.SShape ->
-        E.TArray (B.IShape [], E.TInt)
+        (* TODO: Indicate this is unknown length. *)
+        E.TShape
       | None -> E.TUnknown
     in
     AExpr ((typ, NotArg, NotApp), Var (idx_name_mangle name sort))
@@ -147,14 +148,15 @@ let typ_of_srt = function
 let rec of_erased_typ (t: E.typ) : E.typ =
   match t with
   | E.TDProd (bindings, body) ->
-    E.TFun (List.map ~f:(fun (n, s) -> typ_of_srt s) bindings,
+    E.TFun (List.map ~f:(fun (_, s) -> typ_of_srt s) bindings,
             of_erased_typ body)
   | E.TDSum (bindings, body) ->
     E.TTuple (of_erased_typ body ::
-                List.map ~f:(fun (n, s) -> typ_of_srt s) bindings)
+                List.map ~f:(fun (_, s) -> typ_of_srt s) bindings)
   | E.TTuple ts -> E.TTuple (List.map ~f:of_erased_typ ts)
   | E.TArray (s, t) -> E.TArray (s, of_erased_typ t)
-  | E.TFun _ | E.TVar | E.TInt | E.TBool | E.TFloat | E.TUnknown -> t
+  | E.TFun _ | E.TVar | E.TShape
+  | E.TInt | E.TBool | E.TFloat | E.TUnknown -> t
 
 let of_nested_shape (idxs: E.idx list)
     : (E.typ * arg_frame * app_frame) ann_expr =
