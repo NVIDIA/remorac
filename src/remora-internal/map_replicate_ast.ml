@@ -47,7 +47,7 @@ type var = Basic_ast.var with sexp
 (* Ordinary function application, no implicit lifting. *)
 type 'a app_t = {fn: 'a; args: 'a list} with sexp
 (* Vector construction notation. *)
-type 'a vec_t = {dims: int list; elts: 'a list} with sexp
+type 'a vec_t = {dims: int; elts: 'a list} with sexp
 (* Break args into cells according to the given frame shape, and map the given
    function across corresponding cells in each arg. If the frame is empty (i.e.,
    no result cells will be produced), produce an array of designated shape. *)
@@ -105,7 +105,7 @@ type 'annot ann_prog =
 
 (* Names for some primitive operations this IR relies on. *)
 let op_name_plus : var = "+"
-let op_name_append : var = "append"
+let op_name_shape_append : var = "*"
 
 (* Mangle an index name at a given sort *)
 let idx_name_mangle (name : var) (sort : B.srt option) : var =
@@ -116,6 +116,10 @@ let idx_name_mangle (name : var) (sort : B.srt option) : var =
 
 (* Convert a type-erased AST into a Map/Replicate AST. The input AST is expected
    to have annotations for type, application, and argument frames. *)
+
+(* The full shape structure of an index is only used for typechecking. We can
+   determine how to split an array into mapping pieces given just the total
+   number of pieces. *)
 let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
   match i with
   | B.INat n -> AExpr ((E.TInt, NotArg, NotApp), Int n)
@@ -126,9 +130,15 @@ let rec of_erased_idx (i: B.idx) : (E.typ * arg_frame * app_frame) ann_expr =
                             Var op_name_plus);
                 args = [of_erased_idx i1; of_erased_idx i2]})
   | B.IShape idxs ->
-    AExpr ((shape_t, NotArg, NotApp),
-           Vec {dims = [List.length idxs];
-                elts = List.map ~f:of_erased_idx idxs})
+    List.fold_left ~init:(AExpr ((shape_t, NotArg, NotApp), Int 1))
+      ~f:(fun accum next ->
+        AExpr ((shape_t, NotArg, NotApp),
+               App {fn = AExpr ((append_t, NotArg, NotApp),
+                                Var op_name_shape_append);
+                    args = [accum; of_erased_idx next]})) idxs
+    (* AExpr ((shape_t, NotArg, NotApp), *)
+    (*        Vec {dims = [List.length idxs]; *)
+    (*             elts = List.map ~f:of_erased_idx idxs}) *)
   (* We no longer see the checking environment. Maybe indices should
      have been sort-annotated from the beginning? *)
   | B.IVar (name, sort) ->
@@ -165,7 +175,7 @@ let of_nested_shape (idxs: E.idx list)
       ~init:(of_erased_idx (B.IShape []))
       ~f:(fun l r -> (AExpr ((shape_t, NotArg, NotApp),
                              App {fn = AExpr ((append_t, NotArg, NotApp),
-                                              Var op_name_append);
+                                              Var op_name_shape_append);
                                   args = [l; r]})))
 
 
@@ -270,7 +280,7 @@ let rec of_erased_expr
                           (E.shape_of_typ shp)))
                ~args:(List.map ~f:lift args)
          | E.Arr (dims, elts) ->
-           Vec {dims = dims;
+           Vec {dims = List.fold ~init:1 ~f:( * ) dims;
                 elts = List.map ~f:of_erased_elt elts}
   )
 and of_erased_elt

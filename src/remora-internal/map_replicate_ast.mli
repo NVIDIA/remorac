@@ -33,7 +33,7 @@ open Frame_notes
 type var = B.var with sexp
 
 type 'a app_t = {fn : 'a; args: 'a list;} with sexp
-type 'a vec_t = {dims: int list; elts: 'a list;} with sexp
+type 'a vec_t = {dims: int; elts: 'a list;} with sexp
 type 'a map_t = {frame: 'a; fn: 'a; args: 'a list; shp: 'a;} with sexp
 type 'a rep_t = {arg: 'a; new_frame: 'a; old_frame: 'a;} with sexp
 type 'a tup_t = 'a list with sexp
@@ -66,7 +66,7 @@ type 'annot ann_prog =
   AProg of 'annot * 'annot ann_defn tup_t * 'annot ann_expr with sexp
 
 val op_name_plus : var
-val op_name_append : var
+val op_name_shape_append : var
 
 val idx_name_mangle : var -> B.srt option -> var
 

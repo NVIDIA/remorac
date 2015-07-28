@@ -57,26 +57,33 @@ let rec repeat_list (count: int) (xs: 'a list) : 'a list =
   then []
   else List.append xs (repeat_list (count - 1) xs)
 
-let known_shape (Expr e) : int list =
+let known_shape (Expr e) : int =
   match e with
   | Vec {dims = dims; elts = _} -> dims
-  | _ -> []
+  | _ -> -1
 
 let is_Int (Expr e) = (match e with | Int _ -> true | _ -> false)
 
 let to_int (Expr e) = (match e with | Int i -> i | _ -> assert false)
 
+let value_as_vector (Expr e) =
+  match e with
+  | Tup _ | Lam _ | Int _ | Float _ | Bool _ ->
+    Expr (Vec {dims = 1; elts = [Expr e]})
+  | _ -> Expr e
+
 (* TODO: for scalar frame, arg cells should not get array-wrapped *)
-let cell_split ~(frame: int list) ((Expr array): expr) : expr list option =
+let cell_split ~(frame: int) ((Expr array): expr) : expr list option =
   match array with
   | Vec {dims = dims; elts = elts} ->
-    let cell_shape = List.drop dims (List.length frame) in
-    let cell_size = List.fold_right ~f:( * ) ~init:1 cell_shape in
+    (* let cell_shape = List.drop dims (List.length frame) in *)
+    (* let cell_size = List.fold_right ~f:( * ) ~init:1 cell_shape in *)
+    let cell_size = dims / frame in
     let cell_elts = split_list cell_size elts in
-    if cell_shape = []
+    if cell_size = 1
     then List.map ~f:List.hd cell_elts |> Option.all
     else Some (List.map
-                 ~f:(fun c -> Expr (Vec {dims = cell_shape; elts = c}))
+                 ~f:(fun c -> Expr (Vec {dims = cell_size; elts = c}))
                  cell_elts)
   | _ -> None
 
@@ -84,32 +91,32 @@ exception Stuck_eval;;
 let apply_primop (opname: var) (args: expr list) : expr =
   match opname with
   | "append" ->
-    (* Make sure all args agree on shape past the 1st axis. *)
-    (try (match (List.map
-                   ~f:(fun (Expr v) -> match v with
-                   | Vec {dims = _::cell; elts = _} -> cell
-                   | _ -> raise Stuck_eval) args) with
-
-    | c::cs ->
-          let new_1st_axis = List.fold_right ~init:0
-            ~f:(fun (Expr v) accum -> match v with
-            | Vec {dims = d::_; elts = _} -> d + accum
-            | _ -> raise Stuck_eval)
-            args in
-          if (List.for_all ~f:(fun z -> c = z) cs)
-          then Expr
-            (Vec {dims = new_1st_axis::c;
-                  elts = List.join
-                (List.map
-                   ~f:(fun (Expr v) -> match v with
-                   | Vec {dims = _; elts = e} -> e
-                   | _ -> raise Stuck_eval)
-                   args)})
-          else Expr (App {fn = Expr (Var opname); args = args})
-    (* No args, so this is an empty vector *)
-    | [] -> Expr (Vec {dims = [0]; elts = []}))
-     (* Some arg wasn't reduced to a Vec form. *)
-     with _ -> Expr (App {fn = Expr (Var opname); args = args}))
+    (* Make sure we have args in vector form. *)
+    (try (let vec_args =
+            List.map ~f:(fun (Expr v) -> match v with
+            | Vec _ -> Expr v
+        (* Coerce non-vector "value forms" to singleton vectors *)
+            | Tup _ | Lam _ | Int _ | Float _ | Bool _ ->
+              Expr (Vec {dims = 1; elts = [Expr v]})
+            | _ -> raise Stuck_eval) args in
+          let arg_dims =
+            List.map ~f:(fun (Expr v) -> match v with
+            | (Vec {dims = d; elts = _}) -> d
+            | _ -> raise Stuck_eval) vec_args in
+          let arg_elts =
+            List.map ~f:(fun (Expr v) -> match v with
+            | (Vec {dims = _; elts = e}) -> e
+            | _ -> raise Stuck_eval) vec_args in
+          Expr (Vec {dims = List.fold ~init:1 ~f:( * ) arg_dims;
+                     elts = List.join arg_elts})) with
+    (* Some arg wasn't reduced to a Vec form. *)
+    | _ -> Expr (App {fn = Expr (Var opname); args = args}))
+  | "+" -> (match args with
+    | [Expr (Int n1); Expr (Int n2)] -> Expr (Int (n1 + n2))
+    | _ -> Expr (App {fn = Expr (Var opname); args = args}))
+  | "*" -> (match args with
+    | [Expr (Int n1); Expr (Int n2)] -> Expr (Int (n1 * n2))
+    | _ -> Expr (App {fn = Expr (Var opname); args = args}))
   | _ -> Expr (App {fn = Expr (Var opname); args = args})
 
 (* Expression evaluator, to allow more flexible tests. *)
@@ -123,7 +130,9 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
         eval_expr ~env:(List.append (List.zip_exn bindings args_val) env) body
       (* Special recognition for a few primitive ops *)
       | Expr (Var op) ->
-        eval_expr ~env:env (apply_primop op args_val)
+        (* TODO: apply_primop may return the same thing we gave it, so don't
+           blindly recur on what it returns. *)
+        apply_primop op args_val
       (* Unrecognized/un-evaluated operator *)
       | _ -> Expr (App {fn = fn_val; args = args_val}))
     | Vec {dims = dims; elts = elts} ->
@@ -136,7 +145,7 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
                 | (Vec i) -> i.dims = el.dims | _ -> false)
                 els)
           then let (joined_dims, joined_elts) =
-                 (List.append dims el.dims,
+                 (dims * el.dims,
                   List.join (List.map
                                ~f:(fun (Expr v) -> match v with
                                (* They should all be Vec if this is reached *)
@@ -151,7 +160,7 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
       let frame_val = eval_expr ~env:env frame
       and fn_val = eval_expr ~env:env fn
       and args_val = List.map ~f:(eval_expr ~env:env) args
-      and shp_val = eval_expr ~env:env shp in
+      and shp_val = eval_expr ~env:env shp |> value_as_vector in
       let eval_stuck = Expr (Map {frame = frame_val;
                                   fn = fn_val;
                                   args = args_val;
@@ -160,33 +169,31 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
       (match (fn_val, frame_val, shp_val) with
       (* We need fn_val to be a Lam and frame and shp to be valid shapes. *)
       | (Expr (Lam {bindings = _; body = _}),
-         Expr (Vec {dims = [_]; elts = frame_elts}),
-         Expr (Vec {dims = [_]; elts = shp_elts})) ->
-        if List.for_all ~f:is_Int frame_elts
+         Expr (Int frame_size),
+         (* Expr (Vec {dims = [_]; elts = frame_elts}), *)
+         Expr (Vec {dims = _; elts = shp_elts})) ->
+        (* let frame_axes = List.map ~f:to_int frame_elts in *)
+        (* We need args to be arrays big enough to split into cells. *)
+        if (List.for_all ~f:(fun s -> frame_size <= s) args_axes)
         then
-          let frame_axes = List.map ~f:to_int frame_elts in
-          (* We need args to be arrays with enough leading axes for mapping.*)
-          if (List.for_all
-                ~f:(fun s -> T.prefix_of frame_axes s = Some true)
-                args_axes)
-          then
-            ((Option.all
-                (List.map  ~f:(cell_split ~frame:frame_axes) args_val)
-              >>= fun args_cells ->
-              List.transpose args_cells >>= fun transp_cells ->
-              let apps = List.map
-                ~f:(fun cells -> Expr (App {fn = fn_val; args = cells}))
-                transp_cells in
-              return
-                (if List.length transp_cells = 0
+          ((Option.all
+              (List.map  ~f:(cell_split ~frame:frame_size) args_val)
+            >>= fun args_cells ->
+            List.transpose args_cells >>= fun transp_cells ->
+            let apps = List.map
+              ~f:(fun cells -> Expr (App {fn = fn_val; args = cells}))
+              transp_cells in
+            return
+              (if List.length transp_cells = 0
                  (* No result cells, so use the declared result shape. *)
-                 then eval_expr ~env:env
-                    (Expr (Vec {dims = List.map ~f:to_int shp_elts; elts = []}))
+               then eval_expr ~env:env
+                  (Expr (Vec {dims = List.fold ~init:1 ~f:( * )
+                      (List.map ~f:to_int shp_elts);
+                              elts = []}))
                  (* Evaluate the vector of result cells. *)
-                 else eval_expr ~env:env
-                    (Expr (Vec {dims = frame_axes; elts = apps}))))
-                |> Option.value ~default:eval_stuck)
-          else eval_stuck
+               else eval_expr ~env:env
+                  (Expr (Vec {dims = frame_size; elts = apps}))))
+              |> Option.value ~default:eval_stuck)
         else eval_stuck
       | _ -> eval_stuck)
     | Rep {arg = arg; old_frame = old_frame; new_frame = new_frame} ->
@@ -200,30 +207,22 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
          entire old_frame and new_frame. *)
       (match (arg_val, old_frame_val, new_frame_val) with
       | (Expr (Vec {dims = arg_val_dims; elts = arg_val_elts}),
-         Expr (Vec {dims = [old_frame_rank]; elts = old_frame_axes}),
-         Expr (Vec {dims = [new_frame_rank]; elts = new_frame_axes})) ->
+         Expr (Int old_frame),
+         Expr (Int new_frame)) ->
         (* Make sure that the old_frame is a prefix of the new_frame, and
            that the old_frame is a prefix of arg's shape. *)
-        if (List.for_all ~f:is_Int old_frame_axes)
-          && (List.for_all ~f:is_Int new_frame_axes)
-          && (List.length old_frame_axes = old_frame_rank)
-          && (List.length new_frame_axes = new_frame_rank)
-          && (T.prefix_of old_frame_axes new_frame_axes = Some true)
-          && (T.prefix_of (List.map ~f:to_int old_frame_axes) arg_val_dims
-              = Some true)
+        if (arg_val_dims >= old_frame)
         (* Copy each cell of the argument. *)
         (* 1. identify (visible portion of) cell shape *)
         (* 2. split arg_val_elts into cells *)
         then
-          let expansion_size = List.fold_right ~init:1 ~f:( * )
-            (List.map ~f:to_int (List.drop new_frame_axes old_frame_rank))
-          and cell_shape = (List.drop arg_val_dims old_frame_rank) in
-          let cell_size = List.fold_right ~init:1 ~f:( * ) cell_shape in
+          let expansion_size = (new_frame / old_frame)
+          and cell_size = (arg_val_dims / old_frame) in
+          (* let cell_size = List.fold_right ~init:1 ~f:( * ) cell_shape in *)
           let cells = split_list cell_size arg_val_elts in
           let more_cells: expr list =
             List.join (List.map ~f:(repeat_list expansion_size) cells) in
-          let more_dims =
-            List.append (List.map ~f:to_int new_frame_axes) cell_shape in
+          let more_dims = new_frame * cell_size in
           Expr (Vec {dims = more_dims; elts = more_cells})
         else eval_stuck
       | _ -> eval_stuck
@@ -242,41 +241,41 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
 ;;
 
 let flat_arr_2_3 =
-  Expr (Vec {dims = [2; 3]; elts = [Expr (Int 4); Expr (Int 1); Expr (Int 6);
+  Expr (Vec {dims = 6; elts = [Expr (Int 4); Expr (Int 1); Expr (Int 6);
                                     Expr (Int 2); Expr (Int 3); Expr (Int 5)]})
-let arr_2 = Expr (Vec {dims = [2];
+let arr_2 = Expr (Vec {dims = 2;
                        elts = [Expr (Bool false); Expr (Bool true)]})
 let unary_lambda = Expr (Lam {bindings = ["x"];
-                              body = Expr (Vec {dims = [];
+                              body = Expr (Vec {dims = 1;
                                                elts = [Expr (Int 3)]})})
 let binary_lambda = Expr (Lam {bindings = ["x"; "y"];
-                               body = Expr (Vec {dims = [];
+                               body = Expr (Vec {dims = 1;
                                                  elts = [Expr (Int 3)]})})
-let unary_app = Expr (Vec {dims = []; elts = [Expr (Int 3)]})
+let unary_app = Expr (Vec {dims = 1; elts = [Expr (Int 3)]})
 let unary_to_nested_app =
-  Expr (Vec {dims = [2; 3]; elts = [Expr (Int 1); Expr (Int 2); Expr (Int 3);
+  Expr (Vec {dims = 6; elts = [Expr (Int 1); Expr (Int 2); Expr (Int 3);
                                     Expr (Int 4); Expr (Int 5); Expr (Int 6)]})
 let nested_to_unary_app =
-  Expr (Vec {dims = [3; 2]; elts = [Expr (Int 1); Expr (Int 2); Expr (Int 3);
+  Expr (Vec {dims = 6; elts = [Expr (Int 1); Expr (Int 2); Expr (Int 3);
                                     Expr (Int 4); Expr (Int 5); Expr (Int 6)]})
-let type_abst = Expr (Vec {dims = [];
+let type_abst = Expr (Vec {dims = 1;
                            elts = [Expr (Lam {bindings = ["x"];
                                               body = Expr (Var "x")})]})
 let index_abst =
   Expr (Lam {bindings = [idx_name_mangle "d" (Some B.SNat)];
-             body = Expr (Vec {dims = [];
+             body = Expr (Vec {dims = 1;
                                elts = [Expr (Lam {bindings = ["l"];
                                                   body = Expr (Var "l")})]})})
 let index_app =
-Expr (Vec {dims = [];
+Expr (Vec {dims = 1;
            elts = [Expr (Lam {bindings = ["l"];
                               body = Expr (Var "l")})]})
 let dep_sum_create =
-  Expr (Tup [Expr (Vec {dims = [3];
+  Expr (Tup [Expr (Vec {dims = 3;
                         elts = [Expr (Int 0); Expr (Int 1); Expr (Int 2)]});
              Expr (Int 3)])
 let dep_sum_project =
-  Expr (Vec {dims = []; elts = [Expr (Int 0)]})
+  Expr (Vec {dims = 1; elts = [Expr (Int 0)]})
 
 module Test_translation : sig
   val tests : U.test

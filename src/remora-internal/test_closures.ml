@@ -43,7 +43,7 @@ let unary_lam =
                                             MR.bound = Expr
                                                (Var "__ENV_1");
                                             MR.body = Expr
-                                               (Vec {MR.dims = [];
+                                               (Vec {MR.dims = 1;
                                                      MR.elts =
                                                    [Expr (Int 3)]})})});
            env = Expr (Tup [])})
@@ -92,7 +92,7 @@ let destr_dsum =
              MR.bound = mr_wrap
         (MR.App {MR.fn = fn_wrap (MR.Var "iota");
                  MR.args = [mr_wrap
-                               (MR.Vec {MR.dims = [];
+                               (MR.Vec {MR.dims = 1;
                                         MR.elts = [mr_wrap (MR.Int 5)]})]});
              MR.body = mr_wrap
         (MR.Tup [mr_wrap (MR.Var "l");
@@ -117,9 +117,9 @@ let vec_scal_add =
                 [mr_wrap (MR.Var "x");
                  mr_wrap (MR.Rep {MR.arg = mr_wrap (MR.Var "y");
                                   MR.old_frame = mr_wrap
-                     (MR.Vec {MR.dims = [0]; MR.elts = []});
+                     (MR.Vec {MR.dims = 0; MR.elts = []});
                                   MR.new_frame = mr_wrap
-                     (MR.Vec {MR.dims = [1];
+                     (MR.Vec {MR.dims = 1;
                               MR.elts = [mr_wrap (MR.Var "l")]})})];
                      MR.shp = mr_wrap (MR.Var "l")})})})
 
