@@ -145,7 +145,7 @@ let rec expr_of_maprep
                      Let {MR.vars = free_vars;
                           MR.bound = AExpr ((env_typ, arg, app),
                                             Var env_name);
-                          MR.body = expr_of_maprep bound_for_body b})});
+                          MR.body = expr_of_maprep bound_vars b})});
                 env = AExpr ((env_typ, arg, app),
                              Tup (List.map ~f:(fun (t,v) ->
                                AExpr ((t, NotArg, NotApp), Var v))
