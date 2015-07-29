@@ -89,7 +89,7 @@ let rec shape_of_typ (t: typ) =
     Typechecker.expand_shape s >>= fun s_ ->
     shape_of_typ t >>= fun t_ ->
     List.append s_ t_ |> Option.return
-  | _ -> None
+  | _ -> Some []
 let rec elt_of_typ (t: typ) : typ option =
   match t with
   | TArray (_, ((TArray (_, _)) as subarray)) -> elt_of_typ subarray
