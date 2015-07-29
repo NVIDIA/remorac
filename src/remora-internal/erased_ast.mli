@@ -48,6 +48,7 @@ type typ =
 | TTuple of typ list
 | TShape
 with sexp
+val of_typ : B.typ -> typ
 
 val shape_of_typ : typ -> idx list option
 val elt_of_typ : typ -> typ option
