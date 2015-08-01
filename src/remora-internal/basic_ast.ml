@@ -64,6 +64,7 @@ type typ =
 | TDSum of (var * srt) list * typ
 | TFun of typ list * typ
 | TArray of idx * typ
+| TProd of typ list
 | TAll of var list * typ
 | TVar of var
 with sexp
@@ -84,7 +85,11 @@ type ('self_t, 'elt_t) expr_form =
 | TLam of var list * 'self_t
 | IApp of 'self_t * idx list
 | ILam of (var * srt) list * 'self_t
+| Let of var * 'self_t * 'self_t
 | Arr of int list * 'elt_t list
+| Tuple of 'self_t list
+| Field of int * 'self_t
+| LetTup of var list * 'self_t * 'self_t
 | Var of var
 (* Unfortunately, this typ becomes redundant once the AST is type-annotated. *)
 | Pack of idx list * 'self_t * typ
@@ -110,7 +115,11 @@ let map_expr_form
   | TLam (t_vars, body) -> TLam (t_vars, f_expr body)
   | IApp (fn, i_args) -> IApp (f_expr fn, i_args)
   | ILam (i_vars, body) -> ILam (i_vars, f_expr body)
+  | Let (var, bound, body) -> Let (var, f_expr bound, f_expr body)
   | Arr (dims, elts) -> Arr (dims, List.map ~f:f_elt elts)
+  | Tuple elts -> Tuple (List.map ~f:f_expr elts)
+  | Field (num, tup) -> Field (num, f_expr tup)
+  | LetTup (vars, tup, body) -> LetTup (vars, f_expr tup, f_expr body)
   | Var _ as v -> v
   | Pack (idxs, v, t) -> Pack (idxs, f_expr v, t)
   | Unpack (ivars, v, dsum, body) -> Unpack (ivars, v, f_expr dsum, f_expr body)
@@ -177,35 +186,17 @@ type pt_prog = typ option ann_prog with sexp
 (* Set up a designated "blank" annotation at every AST node *)
 let rec annot_expr_init ~(init: 'a) (expr: rem_expr) : 'a ann_expr =
   match expr with RExpr node ->
-    let new_node = match node with
-       | App (fn, args)
-         -> App (annot_expr_init ~init:init fn,
-                 List.map ~f:(annot_expr_init ~init:init) args)
-       | TApp (fn, args)
-         -> TApp (annot_expr_init ~init:init fn, args)
-       | TLam (args, body)
-         -> TLam (args, annot_expr_init ~init:init body)
-       | IApp (fn, args)
-         -> IApp (annot_expr_init ~init:init fn, args)
-       | ILam (args, body)
-         -> ILam (args, annot_expr_init ~init:init body)
-       | Arr (shape, elts)
-         -> Arr (shape, (List.map ~f:(annot_elt_init ~init:init) elts))
-       | Var name -> Var name
-       | Pack (idxs, contents, t)
-         -> Pack (idxs, (annot_expr_init ~init:init contents), t)
-       | Unpack (idxs, termvar, contents, body)
-         -> Unpack (idxs, termvar,
-                    (annot_expr_init ~init:init contents),
-                    (annot_expr_init ~init:init body))
-    in AnnRExpr (init, new_node)
+    AnnRExpr (init,
+              map_expr_form
+                ~f_expr:(annot_expr_init ~init:init)
+                ~f_elt:(annot_elt_init ~init:init)
+                node)
 and annot_elt_init ~(init: 'a) (elt: rem_elt) : 'a ann_elt =
   match elt with RElt node ->
-    let new_node = match node with
-      | Lam (bindings, body) -> Lam (bindings, annot_expr_init ~init:init body)
-      | Expr e -> Expr (annot_expr_init ~init:init e)
-      | (Float _ | Int _ | Bool _) as other -> other
-    in AnnRElt (init, new_node)
+    AnnRElt (init,
+             map_elt_form
+               ~f_expr:(annot_expr_init ~init:init)
+               node)
 ;;
 
 (* Set up "blank" annotations in a definition *)
@@ -223,28 +214,10 @@ let annot_prog_init ~(init: 'a) (prog: rem_prog) : 'a ann_prog =
 (* Extract the non-annotated version of an AST node *)
 let rec annot_expr_drop (expr: 'a ann_expr) : rem_expr =
   match expr with AnnRExpr (_, node) ->
-    let new_node = match node with
-      | App (fn, args) -> App (annot_expr_drop fn,
-                               List.map ~f:annot_expr_drop args)
-      | TApp (fn, args) -> TApp (annot_expr_drop fn, args)
-      | TLam (args, body) -> TLam (args, annot_expr_drop body)
-      | IApp (fn, args) -> IApp (annot_expr_drop fn, args)
-      | ILam (args, body) -> ILam (args, annot_expr_drop body)
-      | Arr (shape, elts) -> Arr (shape, List.map ~f:annot_elt_drop elts)
-      | Var name -> Var name
-      | Pack (idxs, contents, t) -> Pack (idxs, annot_expr_drop contents, t)
-      | Unpack (idxs, termvar, contents, body)
-        -> Unpack (idxs, termvar,
-                   annot_expr_drop contents,
-                   annot_expr_drop body)
-    in RExpr new_node
+    RExpr (map_expr_form ~f_expr:annot_expr_drop ~f_elt:annot_elt_drop node)
 and annot_elt_drop (elt: 'a ann_elt) : rem_elt =
   match elt with AnnRElt (_, node) ->
-    let new_node = match node with
-      | Lam (bindings, body) -> Lam (bindings, annot_expr_drop body)
-      | Expr e -> Expr (annot_expr_drop e)
-      | (Float _ | Int _ | Bool _) as other -> other
-    in RElt new_node
+    RElt (map_elt_form ~f_expr:annot_expr_drop node)
 ;;
 
 (* Extract non-annotated version of a definition *)

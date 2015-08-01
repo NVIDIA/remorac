@@ -54,6 +54,7 @@ type typ =
 | TDSum of (var * srt) list * typ
 | TFun of typ list * typ
 | TArray of idx * typ
+| TProd of typ list
 | TAll of var list * typ
 | TVar of var
 with sexp
@@ -64,7 +65,11 @@ type ('self_t, 'elt_t) expr_form =
 | TLam of var list * 'self_t
 | IApp of 'self_t * idx list
 | ILam of (var * srt) list * 'self_t
+| Let of var * 'self_t * 'self_t
 | Arr of int list * 'elt_t list
+| Tuple of 'self_t list
+| Field of int * 'self_t
+| LetTup of var list * 'self_t * 'self_t
 | Var of var
 | Pack of idx list * 'self_t * typ
 | Unpack of var list * var * 'self_t * 'self_t

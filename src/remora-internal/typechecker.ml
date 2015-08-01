@@ -74,6 +74,7 @@ let rec fix_srt_decls_t (idxs: srt env) (t: typ) : typ =
                                  fix_srt_decls_t idxs elt)
   | TFun (ins, out) -> TFun (List.map ~f:(fix_srt_decls_t idxs) ins,
                              fix_srt_decls_t idxs out)
+  | TProd elts -> TProd (List.map ~f:(fix_srt_decls_t idxs) elts)
   | TDProd (ivars, body) ->
     TDProd (ivars, fix_srt_decls_t (env_update ivars idxs) body)
   | TDSum (ivars, body) ->
@@ -104,6 +105,9 @@ let rec kind_of_typ (idxs: srt env)
     then (kind_of_typ idxs types elts >>= fun e_kind ->
           Some e_kind)
     else None
+  | TProd elts ->
+    List.map ~f:(kind_of_typ idxs types) elts |> Option.all >>= fun _ ->
+    return ()
   | TAll (vars, body)
     -> kind_of_typ idxs
                    (env_update (List.map ~f:(fun x -> (x,())) vars) types)
@@ -204,6 +208,9 @@ let rec canonicalize_typ = function
     Option.all (List.map ~f:canonicalize_typ args) >>= fun args_ ->
     canonicalize_typ ret >>= fun ret_ ->
     TFun (args_, ret_) |> return
+  | TProd elts ->
+    Option.all (List.map ~f:canonicalize_typ elts) >>= fun elts_ ->
+    TProd elts_ |> return
   | TArray (shape, (TArray (IShape [], elt_typ))) ->
     canonicalize_typ (TArray (shape, elt_typ))
   | TArray (IShape [], (TArray _ as sub_array)) -> canonicalize_typ sub_array
@@ -472,6 +479,19 @@ and annot_expr_type
           annot_of_expr body_annot >>= fun body_type ->
           TDProd (bindings, body_type) |> return
         in (ilam_type, ILam (bindings, body_annot))
+      (* TODO: test case *)
+      | Let (var, bound, body) ->
+        let bound_annot = annot_expr_type idxs typs vars bound in
+        let env_extension =
+          (annot_of_expr bound_annot >>= fun bound_type ->
+           return (var, bound_type)) |> Option.to_list in
+        let body_annot =
+          annot_expr_type idxs typs (env_update env_extension vars) body in
+        (* If `bound' is ill-typed but we could type `body' without actually
+           relying on `bound', this `Let' is still ill-typed. *)
+        let result_type = annot_of_expr bound_annot >>= fun _ ->
+          annot_of_expr body_annot in
+        (result_type, Let (var, bound_annot, body_annot))
       | Arr (dims, data) ->
         let arr_size: int = List.fold_left ~f:( * ) ~init:1 dims
         and elts_annot = List.map ~f:(annot_elt_type idxs typs vars) data in
@@ -491,6 +511,37 @@ and annot_expr_type
              derived unique element type to construct the array's type. *)
           return (TArray (array_shape, uniq_elt_type)) in
         (array_type, Arr (dims, elts_annot))
+      (* TODO: test case *)
+      | Tuple elts ->
+        let elt_annots = List.map ~f:(annot_expr_type idxs typs vars) elts in
+        let product_type =
+          List.map ~f:annot_of_expr elt_annots |>
+              Option.all >>= fun elt_types -> return (TProd elt_types) in
+        (product_type, Tuple elt_annots)
+      (* TODO: test case *)
+      | Field (num, tup) ->
+        let tup_annot = annot_expr_type idxs typs vars tup in
+        let field_type =
+          annot_of_expr tup_annot >>= function
+          | TProd ft -> List.nth ft num
+          | _ -> None in
+        (field_type, Field (num, tup_annot))
+      (* TODO: test case *)
+      | LetTup (v, tup, body) ->
+        let tup_annot = annot_expr_type idxs typs vars tup in
+        (* Find out how to extend the var env. Get the tuple's arity so we
+           don't confuse an empty tuple for an ill-typed tuple later on. *)
+        let (env_extension, tuple_arity) =
+          (annot_of_expr tup_annot |> function
+          | Some (TProd ft) -> (List.zip v ft, List.length ft)
+          | _ -> (None, -1)) |>
+              Tuple2.map1 ~f:(fun x -> x |> Option.to_list |> List.join) in
+        let body_annot =
+          annot_expr_type idxs typs (env_update env_extension vars) body in
+        let result_type =
+          if tuple_arity = List.length v
+          then annot_of_expr body_annot else None in
+        (result_type, LetTup (v, tup_annot, body_annot))
       | Var name as v_ -> (List.Assoc.find vars name, v_)
       (* If the type declaration on a Pack form is not a dependent sum, there
          is no way to type it. *)
