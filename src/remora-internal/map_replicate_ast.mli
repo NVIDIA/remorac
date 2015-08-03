@@ -37,7 +37,9 @@ type 'a vec_t = {dims: int; elts: 'a list;} with sexp
 type 'a map_t = {frame: 'a; fn: 'a; args: 'a list; shp: 'a;} with sexp
 type 'a rep_t = {arg: 'a; new_frame: 'a; old_frame: 'a;} with sexp
 type 'a tup_t = 'a list with sexp
-type 'a let_t = {vars: var list; bound: 'a; body: 'a;} with sexp
+type 'a fld_t = {field: int; tuple: 'a} with sexp
+type 'a let_t = {var: var; bound: 'a; body: 'a;} with sexp
+type 'a lettup_t = {vars: var list; bound: 'a; body: 'a} with sexp
 type 'a lam_t = {bindings: var list; body: 'a;} with sexp
 
 type 'a expr_form =
@@ -46,6 +48,8 @@ type 'a expr_form =
   | Map of 'a map_t
   | Rep of 'a rep_t
   | Tup of 'a tup_t
+  | LetTup of 'a lettup_t
+  | Fld of 'a fld_t
   | Let of 'a let_t
   | Lam of 'a lam_t
   | Var of var

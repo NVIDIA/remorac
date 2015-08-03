@@ -43,6 +43,8 @@ type 'a expr_form =
 | Map of 'a MR.map_t
 | Rep of 'a MR.rep_t
 | Tup of 'a MR.tup_t
+| LetTup of 'a MR.lettup_t
+| Fld of 'a MR.fld_t
 | Let of 'a MR.let_t
 | Cls of 'a closure_t
 | Lam of 'a MR.lam_t
@@ -68,8 +70,12 @@ let map_expr_form
   | Rep {MR.arg = a; MR.new_frame = n; MR.old_frame = o} ->
     Rep {MR.arg = f a; MR.new_frame = f n; MR.old_frame = f o}
   | Tup e -> Tup (List.map ~f:f e)
-  | Let {MR.vars = v; MR.bound = bn; MR.body = bd} ->
-    Let {MR.vars = v; MR.bound = f bn; MR.body = f bd}
+  | LetTup {MR.vars = v; MR.bound = bn; MR.body = bd} ->
+    LetTup {MR.vars = v; MR.bound = f bn; MR.body = f bd}
+  | Fld {MR.field = n; MR.tuple = tup} ->
+    Fld {MR.field = n; MR.tuple = f tup}
+  | Let {MR.var = v; MR.bound = nd; MR.body = bd} ->
+    Let {MR.var = v; MR.bound = f nd; MR.body = f bd}
   | Cls {code = c; env = a} -> Cls {code = f c; env = f a}
   | Lam {MR.bindings = v; MR.body = e} ->
     Lam {MR.bindings = v; MR.body = f e}
@@ -108,8 +114,14 @@ let rec expr_of_maprep
                 MR.new_frame = expr_of_maprep bound_vars n;
                 MR.old_frame = expr_of_maprep bound_vars o}
          | MR.Tup e -> Tup (List.map ~f:(expr_of_maprep bound_vars) e)
-         | MR.Let {MR.vars = v; MR.bound = bn; MR.body = bd} ->
-           Let {MR.vars = v;
+         | MR.LetTup {MR.vars = v; MR.bound = bn; MR.body = bd} ->
+           LetTup {MR.vars = v;
+                   MR.bound = expr_of_maprep bound_vars bn;
+                   MR.body = expr_of_maprep bound_vars bd}
+         | MR.Fld {MR.field = n; MR.tuple = tup} ->
+           Fld {MR.field = n; MR.tuple = expr_of_maprep bound_vars tup}
+         | MR.Let {MR.var = v; MR.bound = bn; MR.body = bd} ->
+           Let {MR.var = v;
                 MR.bound = expr_of_maprep bound_vars bn;
                 MR.body = expr_of_maprep bound_vars bd}
          | MR.Lam {MR.bindings = v; MR.body = b} ->
@@ -142,10 +154,10 @@ let rec expr_of_maprep
                 Lam {MR.bindings = env_name :: v;
                      MR.body = AExpr
                     ((out_typ, arg, app),
-                     Let {MR.vars = free_vars;
-                          MR.bound = AExpr ((env_typ, arg, app),
-                                            Var env_name);
-                          MR.body = expr_of_maprep bound_vars b})});
+                     LetTup {MR.vars = free_vars;
+                             MR.bound = AExpr ((env_typ, arg, app),
+                                               Var env_name);
+                             MR.body = expr_of_maprep bound_vars b})});
                 env = AExpr ((env_typ, arg, app),
                              Tup (List.map ~f:(fun (t,v) ->
                                AExpr ((t, NotArg, NotApp), Var v))
@@ -250,10 +262,19 @@ let rec expr_hoist_lambdas
   | Tup elts ->
     List.map ~f:expr_hoist_lambdas elts |> all >>= fun new_elts ->
     AExpr (a, Tup new_elts) |> return
-  | Let {MR.vars = vars; MR.bound = bound; MR.body = body} ->
+  | LetTup {MR.vars = vars; MR.bound = bound; MR.body = body} ->
     expr_hoist_lambdas bound >>= fun new_bound ->
     expr_hoist_lambdas body >>= fun new_body ->
-    AExpr (a, Let {MR.vars = vars;
+    AExpr (a, LetTup {MR.vars = vars;
+                      MR.bound = new_bound;
+                      MR.body = new_body}) |> return
+  | Fld {MR.field = n; MR.tuple = tup} ->
+    expr_hoist_lambdas tup >>= fun new_tup ->
+    AExpr (a, Fld {MR.field = n; MR.tuple = new_tup}) |> return
+  | Let {MR.var = v; MR.bound = bound; MR.body = body} ->
+    expr_hoist_lambdas bound >>= fun new_bound ->
+    expr_hoist_lambdas body >>= fun new_body ->
+    AExpr (a, Let {MR.var = v;
                    MR.bound = new_bound;
                    MR.body = new_body}) |> return
   | Cls {code = code; env = env} ->

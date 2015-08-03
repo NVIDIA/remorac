@@ -239,6 +239,9 @@ let typ_equal (t1: typ) (t2: typ) : bool =
   let rec typ_equal_ (t1: typ) (t2: typ) : bool =
     match (t1, t2) with
     | (TInt, TInt) | (TFloat, TFloat) | (TBool, TBool) -> true
+    | (TProd elts1, TProd elts2) ->
+      List.length elts1 = List.length elts2 &&
+    (List.for_all2_exn ~f:typ_equal_ elts1 elts2)
     | (TDProd (bind1, body1), TDProd (bind2, body2))
     | (TDSum (bind1, body1), TDSum (bind2, body2)) ->
       if (List.length bind1) <> (List.length bind2) then false

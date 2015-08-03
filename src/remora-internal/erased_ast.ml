@@ -78,6 +78,7 @@ let rec of_typ (t: B.typ) : typ =
   | B.TFun (args, ret) -> TFun (List.map ~f:of_typ args, of_typ ret)
   | B.TAll (_, body) -> of_typ body
   | B.TArray (shp, elt) -> TArray (shp, of_typ elt)
+  | B.TProd elts -> TTuple (List.map ~f:of_typ elts)
 
 (* Build an (erased) array type with a given shape around a given type. *)
 let typ_of_shape (idxs : idx list) (elt : typ) : typ =
@@ -108,6 +109,10 @@ type ('self_t, 'elt_t) expr_form =
 | Var of var
 | Pack of (idx list * 'self_t)
 | Unpack of (var list * var * 'self_t * 'self_t)
+| Let of (var * 'self_t * 'self_t)
+| Tuple of 'self_t list
+| Field of int * 'self_t
+| LetTup of (var list * 'self_t * 'self_t)
 and ('self_t, 'expr_t) elt_form =
 | Float of float
 | Int of int
@@ -129,6 +134,10 @@ match e with
 | Var _ as v -> v
 | Pack (idxs, value) -> Pack (idxs, f_expr value)
 | Unpack (ivars, v, dsum, body) -> Unpack (ivars, v, f_expr dsum, f_expr body)
+| Let (var, bound, body) -> Let (var, f_expr bound, f_expr body)
+| Tuple elts -> Tuple (List.map ~f:f_expr elts)
+| Field (n, tup) -> Field (n, f_expr tup)
+| LetTup (vars, bound, body) -> LetTup (vars, f_expr bound, f_expr body)
 
 let map_elt_form
     ~(f_expr: 'old_expr_t -> 'new_expr_t)
@@ -170,6 +179,12 @@ let rec of_expr (B.RExpr e) =
   | B.Pack (idxs, value, _) -> EExpr (Pack (idxs, of_expr value))
   | B.Unpack (ivars, v, dsum, body) ->
     EExpr (Unpack (ivars, v, of_expr dsum, of_expr body))
+  | B.Let (var, bound, body) ->
+    EExpr (Let (var, of_expr bound, of_expr body))
+  | B.Tuple elts -> EExpr (Tuple (List.map ~f:of_expr elts))
+  | B.Field (n, tup) -> EExpr (Field (n, of_expr tup))
+  | B.LetTup (vars, bound, body) ->
+    EExpr (LetTup (vars, of_expr bound, of_expr body))
 and of_elt (B.RElt l) =
   EElt (
     match l with
@@ -217,6 +232,18 @@ let rec of_ann_expr
                  Unpack (ivars, v,
                          of_ann_expr ~merge:merge dsum,
                          of_ann_expr ~merge:merge body))
+  | B.Let (var, bound, body)
+    -> AnnEExpr (a, Let (var,
+                         of_ann_expr ~merge:merge bound,
+                         of_ann_expr ~merge:merge body))
+  | B.Tuple elts
+    -> AnnEExpr (a, Tuple (List.map ~f:(of_ann_expr ~merge:merge) elts))
+  | B.Field (n, tup)
+    -> AnnEExpr (a, Field (n, of_ann_expr ~merge:merge tup))
+  | B.LetTup (vars, bound, body)
+    -> AnnEExpr (a, LetTup (vars,
+                            of_ann_expr ~merge:merge bound,
+                            of_ann_expr ~merge:merge body))
 and of_ann_elt
     ?(merge = const)
     (B.AnnRElt (a, l): 'annot B.ann_elt)
@@ -312,7 +339,29 @@ let rec annot_expr_merge
       annot_expr_merge f body1 body2 >>= fun new_body ->
       return (Unpack (ivars1, v1, new_dsum, new_body))
       else None
-    | ((App _ | IApp _ | ILam _ | Arr _ | Var _ | Pack _ | Unpack _), _) -> None
+    | (Let (var1, bound1, body1), Let (var2, bound2, body2)) ->
+      if var1 = var2
+      then annot_expr_merge f bound1 bound2 >>= fun new_bound ->
+      annot_expr_merge f body1 body2 >>= fun new_body ->
+      return (Let (var1, new_bound, new_body))
+      else None
+    | (Tuple elts1, Tuple elts2) ->
+      map2 ~f:(annot_expr_merge f) elts1 elts2 |>
+          Option.map ~f:Option.all |> Option.join >>= fun new_elts ->
+      return (Tuple new_elts)
+    | (Field (n1, tup1), Field (n2, tup2)) ->
+      if n1 = n2
+      then annot_expr_merge f tup1 tup2 >>= fun new_tup ->
+      return (Field (n1, new_tup))
+      else None
+    | (LetTup (vars1, bound1, body1), LetTup (vars2, bound2, body2)) ->
+      if vars1 = vars2
+      then annot_expr_merge f bound1 bound2 >>= fun new_bound ->
+      annot_expr_merge f body1 body2 >>= fun new_body ->
+      return (LetTup (vars1, new_bound, new_body))
+      else None
+    | ((App _ | IApp _ | ILam _ | Arr _ | Var _ | Pack _ | Unpack _
+           | Let _ | Tuple _ | Field _ | LetTup _), _) -> None
   in
   new_expr >>= fun valid_new_expr ->
   return (AnnEExpr (new_annot, valid_new_expr))

@@ -42,6 +42,8 @@ type 'a expr_form =
 | Map of 'a MR.map_t
 | Rep of 'a MR.rep_t
 | Tup of 'a MR.tup_t
+| LetTup of 'a MR.lettup_t
+| Fld of 'a MR.fld_t
 | Let of 'a MR.let_t
 | Cls of 'a closure_t
 | Lam of 'a MR.lam_t

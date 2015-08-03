@@ -111,9 +111,31 @@ and annot_expr_merge
       annot_expr_merge f body1 body2 >>= fun new_body ->
       return (Unpack (i_vars1, v1, new_dsum, new_body))
       else None
+    | (Let (var1, bound1, body1), Let (var2, bound2, body2)) ->
+      if var1 = var2
+      then annot_expr_merge f bound1 bound2 >>= fun new_bound ->
+      annot_expr_merge f body1 body2 >>= fun new_body ->
+      return (Let (var1, new_bound, new_body))
+      else None
+    | (Tuple elts1, Tuple elts2) ->
+      map2 ~f:(annot_expr_merge f) elts1 elts2 |>
+          Option.map ~f:Option.all |> Option.join >>= fun new_elts ->
+      return (Tuple new_elts)
+    | (Field (n1, tup1), Field (n2, tup2)) ->
+      if n1 = n2
+      then annot_expr_merge f tup1 tup2 >>= fun new_tup ->
+      return (Field (n1, new_tup))
+      else None
+    | (LetTup (vars1, bound1, body1), LetTup (vars2, bound2, body2)) ->
+      if vars1 = vars2
+      then annot_expr_merge f bound1 bound2 >>= fun new_bound ->
+      annot_expr_merge f body1 body2 >>= fun new_body ->
+      return (LetTup (vars1, new_bound, new_body))
+      else None
     (* Anything else with an already-handled form means mismatching ASTs. *)
     | ((App _ | TApp _ | TLam _ | IApp _ | ILam _
-           | Arr _ | Var _ | Pack _ | Unpack _), _) -> None
+           | Arr _ | Var _ | Pack _ | Unpack _
+           | Let _ | Tuple _ | Field _ | LetTup _), _) -> None
   in new_expr >>= fun valid_new_expr ->
   return (AnnRExpr (new_annot, valid_new_expr))
 ;;

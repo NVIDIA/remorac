@@ -39,11 +39,11 @@ let subst_expr_form
          body = (recur
                    (List.fold ~init:subst
                       ~f:(List.Assoc.remove ~equal:(=)) bindings) body)}
-  | Let {vars = vars; bound = bound; body = body} ->
-    Let {vars = vars;
-         bound = (recur subst bound);
-         body = (recur (List.fold ~init:subst
-                          ~f:(List.Assoc.remove ~equal:(=)) vars) body)}
+  | LetTup {vars = vars; bound = bound; body = body} ->
+    LetTup {vars = vars;
+            bound = (recur subst bound);
+            body = (recur (List.fold ~init:subst
+                             ~f:(List.Assoc.remove ~equal:(=)) vars) body)}
   | _ -> map_expr_form ~f:(recur subst) ef
 
 let rec split_list (increment: int) (xs: 'a list) : 'a list list =
@@ -229,12 +229,21 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
       )
     | Tup elts -> Expr( Tup (List.map ~f:(eval_expr ~env:env) elts))
     | Lam {bindings = _; body = _} as lam -> Expr lam
-    | Let {vars = vars; bound = bound; body = body} ->
+    | Fld {field = n; tuple = tup} ->
+      let tup_val = eval_expr ~env:env tup in
+      (match tup_val with
+      | Expr Tup elts when List.length elts > n ->
+        List.nth_exn elts n
+      | _ -> tup_val)
+    | LetTup {vars = vars; bound = bound; body = body} ->
       let bound_val = eval_expr ~env:env bound in
       (match bound_val with
       | Expr Tup elts ->
         eval_expr ~env:(List.append (List.zip_exn vars elts) env) body
-      | _ -> Expr (Let {vars = vars; bound = bound_val; body = body}))
+      | _ -> Expr (LetTup {vars = vars; bound = bound_val; body = body}))
+    | Let {var = var; bound = bound; body = body} ->
+      let bound_val = eval_expr ~env:env bound in
+      eval_expr ~env:((var, bound_val) :: env) body
     | Var name ->
       List.Assoc.find env name |> Option.value ~default:(Expr (Var name))
     | Bool _ | Float _ | Int _ as c -> Expr c

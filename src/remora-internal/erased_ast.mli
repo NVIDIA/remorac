@@ -62,6 +62,10 @@ type ('self_t, 'elt_t) expr_form =
 | Var of var
 | Pack of (idx list * 'self_t)
 | Unpack of (var list * var * 'self_t * 'self_t)
+| Let of (var * 'self_t * 'self_t)
+| Tuple of 'self_t list
+| Field of int * 'self_t
+| LetTup of (var list * 'self_t * 'self_t)
 and ('self_t, 'expr_t) elt_form =
 | Float of float
 | Int of int

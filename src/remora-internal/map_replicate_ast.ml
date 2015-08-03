@@ -57,7 +57,11 @@ type 'a rep_t = {arg: 'a; new_frame: 'a; old_frame: 'a} with sexp
 (* Ordinary tuples. *)
 type 'a tup_t = 'a list with sexp
 (* Let-binding a tuple's contents. *)
-type 'a let_t = {vars: var list; bound: 'a; body: 'a} with sexp
+type 'a lettup_t = {vars: var list; bound: 'a; body: 'a} with sexp
+(* Accessing a particular field within a tuple. *)
+type 'a fld_t = {field: int; tuple: 'a} with sexp
+(* Ordinary let-binding. *)
+type 'a let_t = {var: var; bound: 'a; body: 'a} with sexp
 (* Ordinary (non-lifting) functions. *)
 type 'a lam_t = {bindings: var list; body: 'a} with sexp
 
@@ -67,6 +71,8 @@ type 'a expr_form =
 | Map of 'a map_t
 | Rep of 'a rep_t
 | Tup of 'a tup_t
+| LetTup of 'a lettup_t
+| Fld of 'a fld_t
 | Let of 'a let_t
 | Lam of 'a lam_t
 | Var of var
@@ -88,8 +94,11 @@ let map_expr_form ~f = function
   | Rep {arg = arg; new_frame = new_frame; old_frame = old_frame}
     -> Rep {arg = f arg; new_frame = f new_frame; old_frame = f old_frame}
   | Tup elts -> Tup (List.map ~f:f elts)
-  | Let {vars = vars; bound = bound; body = body}
-    -> Let {vars = vars; bound = f bound; body = f body}
+  | LetTup {vars = vars; bound = bound; body = body}
+    -> LetTup {vars = vars; bound = f bound; body = f body}
+  | Fld {field = n; tuple = tup} -> Fld {field = n; tuple = f tup}
+  | Let {var = var; bound = bound; body = body}
+    -> Let {var = var; bound = f bound; body = f body}
   | Lam {bindings = bindings; body = body}
     -> Lam {bindings = bindings; body = f body}
   | Var _ | Int _ | Float _ | Bool _ as v -> v
@@ -235,9 +244,10 @@ let rec of_erased_expr
          (* Note: the value has moved to the front of the tuple. *)
          | E.Pack (idxs, value)
            -> Tup (of_erased_expr value :: List.map ~f:of_erased_idx idxs)
-         | E.Unpack (ivars, v, dsum, body) -> Let {vars = v :: ivars;
-                                                   bound = of_erased_expr dsum;
-                                                   body = of_erased_expr body}
+         | E.Unpack (ivars, v, dsum, body) ->
+           LetTup {vars = v :: ivars;
+                   bound = of_erased_expr dsum;
+                   body = of_erased_expr body}
          (* TODO: Some call to Option.value_exn in this branch was failing.
             Is it fixed? *)
          | E.App (fn, args, shp) ->
@@ -282,6 +292,15 @@ let rec of_erased_expr
          | E.Arr (dims, elts) ->
            Vec {dims = List.fold ~init:1 ~f:( * ) dims;
                 elts = List.map ~f:of_erased_elt elts}
+         | E.Let (var, bound, body) -> Let {var = var;
+                                            bound = of_erased_expr bound;
+                                            body = of_erased_expr body}
+         | E.Tuple elts -> Tup (List.map ~f:of_erased_expr elts)
+         | E.Field (n, tup) -> Fld {field = n; tuple = of_erased_expr tup}
+         | E.LetTup (vars, bound, body) ->
+           LetTup {vars = vars;
+                   bound = of_erased_expr bound;
+                   body = of_erased_expr body}
   )
 and of_erased_elt
     (E.AnnEElt ((typ, arg, app), e): (E.typ * arg_frame * app_frame) E.ann_elt)
@@ -346,10 +365,14 @@ let get_free_vars
       (List.append (recur bound o) (recur bound n)) |>
         dedup
   | Tup l -> List.map ~f:(recur bound) l |> List.concat |> dedup
+  | Let {var = v; bound = bn; body = bd} ->
+    let bound_ = dedup (v :: bound) in
+    List.append (recur bound bn) (recur bound_ bd) |> dedup
   | Lam {bindings = v; body = b} ->
     let bound_ = List.dedup (List.append bound v) in
     recur bound_ b
-  | Let {vars = v; bound = bn; body = bd} ->
+  | Fld {field = _; tuple = tup} -> recur bound tup |> dedup
+  | LetTup {vars = v; bound = bn; body = bd} ->
     let bound_ = dedup (List.append bound v) in
     List.append (recur bound bn) (recur bound_ bd) |> dedup
   | Var n -> if List.mem bound n then [] else [n]
@@ -387,7 +410,13 @@ let rec get_annotated_free_vars
   | Lam {bindings = v; body = b} ->
     let bound_ = List.dedup (List.append bound v) in
     get_annotated_free_vars bound_ b
-  | Let {vars = v; bound = bn; body = bd} ->
+  | Let {var = v; bound = bn; body = bd} ->
+    let bound_ = List.dedup (v :: bound) in
+    List.append
+      (get_annotated_free_vars bound bn)
+      (get_annotated_free_vars bound_ bd) |> dedup
+  | Fld {field = _; tuple = tup} -> get_annotated_free_vars bound tup
+  | LetTup {vars = v; bound = bn; body = bd} ->
     let bound_ = List.dedup (List.append bound v) in
     List.append
       (get_annotated_free_vars bound bn)

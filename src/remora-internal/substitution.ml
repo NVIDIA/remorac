@@ -57,6 +57,7 @@ let rec typ_into_typ (sub: typ subst) (t: typ) : typ =
                              ~f:(List.Assoc.remove ~equal:(=)) tvars)
                body)
   | TVar v -> Option.value ~default:(TVar v) (List.Assoc.find sub v)
+  | TProd elts -> TProd (List.map ~f:(typ_into_typ sub) elts)
 
 let rec idx_into_idx (sub: idx subst) (i: idx) : idx =
   match i with
@@ -83,12 +84,6 @@ let rec idx_into_typ (sub: idx subst) (t: typ) : typ =
   | TArray (shape, elts) -> TArray (idx_into_idx sub shape,
                                     idx_into_typ sub elts)
   | TAll (tvars, body) -> TAll (tvars, idx_into_typ sub body)
-  | TVar v as tv -> tv
-
-let rec idx_into_idx (sub: idx subst) (i: idx) : idx =
-  match i with
-  | INat n as i_ -> i_
-  | IShape idxs -> IShape (List.map ~f:(idx_into_idx sub) idxs)
-  | ISum (idx1, idx2) -> ISum (idx_into_idx sub idx1, idx_into_idx sub idx2)
-  | IVar v -> Option.value ~default:(IVar v) (List.Assoc.find sub v)
+  | TVar _ as tv -> tv
+  | TProd elts -> TProd (List.map ~f:(idx_into_typ sub) elts)
 

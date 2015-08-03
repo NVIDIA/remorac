@@ -38,8 +38,8 @@ let unary_lam =
   Expr (Cls
           {code =
               Expr (Lam {MR.bindings = ["__ENV_1"; "x"];
-                         MR.body = Expr (Let
-                                           {MR.vars = [];
+                         MR.body = Expr (LetTup
+                                            {MR.vars = [];
                                             MR.bound = Expr
                                                (Var "__ENV_1");
                                             MR.body = Expr
@@ -53,43 +53,45 @@ let mr_wrap e = MR.AExpr ((E.TUnknown, NotArg, NotApp), e)
 let fn_wrap e = MR.AExpr ((E.TFun ([], E.TUnknown), NotArg, NotApp), e)
 
 let escaping_function =
-  mr_wrap (MR.Let {MR.vars = ["f"];
-                MR.bound = mr_wrap
-      (MR.Let {MR.vars = ["x"];
-            MR.bound = mr_wrap (MR.Tup [mr_wrap (MR.Int 5)]);
-            MR.body = (fn_wrap
-                         (MR.Lam {bindings = ["l"];
-                                  MR.body = mr_wrap
-                             (MR.App {MR.fn = fn_wrap (MR.Var "+");
-                                      MR.args = [mr_wrap (MR.Var "l");
-                                                 mr_wrap (MR.Var "x")]})}))});
-                MR.body = (mr_wrap
-                             (MR.App {MR.fn = fn_wrap (MR.Var "f");
-                                      MR.args = [mr_wrap (MR.Int 6)]}))})
+  mr_wrap (MR.LetTup {MR.vars = ["f"];
+                      MR.bound = mr_wrap
+      (MR.LetTup
+         {MR.vars = ["x"];
+          MR.bound = mr_wrap (MR.Tup [mr_wrap (MR.Int 5)]);
+          MR.body = (fn_wrap
+                       (MR.Lam {bindings = ["l"];
+                                MR.body = mr_wrap
+                           (MR.App {MR.fn = fn_wrap (MR.Var "+");
+                                    MR.args = [mr_wrap (MR.Var "l");
+                                               mr_wrap (MR.Var "x")]})}))});
+                      MR.body = (mr_wrap
+                                   (MR.App {MR.fn = fn_wrap (MR.Var "f");
+                                            MR.args = [mr_wrap (MR.Int 6)]}))})
 let converted =
   Expr
-    (Let {MR.vars = ["f"];
-          MR.bound =
+    (LetTup {MR.vars = ["f"];
+             MR.bound =
         Expr
-          (Let {MR.vars = ["x"];
-                MR.bound = Expr (Tup [Expr (Int 5)]);
-                MR.body =
+          (LetTup {MR.vars = ["x"];
+                   MR.bound = Expr (Tup [Expr (Int 5)]);
+                   MR.body =
               Expr (Cls {code =
                   Expr (Lam {MR.bindings = ["env";"l"];
                              MR.body = Expr
-                      (Let {MR.vars = ["x"];
-                            MR.bound = Expr (Var "env");
-                            MR.body = Expr (App {closure = Expr (Var "+");
-                                                 args = [Expr (Var "l");
-                                                         Expr (Var "x")]})})});
+                      (LetTup
+                         {MR.vars = ["x"];
+                          MR.bound = Expr (Var "env");
+                          MR.body = Expr (App {closure = Expr (Var "+");
+                                               args = [Expr (Var "l");
+                                                       Expr (Var "x")]})})});
                          env = Expr (Tup [Expr (Var "x")])})});
           MR.body = Expr (App {closure = Expr (Var "f");
                                args = [Expr (Int 6)]})})
 
 let destr_dsum =
   mr_wrap
-    (MR.Let {MR.vars = ["l";"n"];
-             MR.bound = mr_wrap
+    (MR.LetTup {MR.vars = ["l";"n"];
+                MR.bound = mr_wrap
         (MR.App {MR.fn = fn_wrap (MR.Var "iota");
                  MR.args = [mr_wrap
                                (MR.Vec {MR.dims = 1;
@@ -125,13 +127,13 @@ let vec_scal_add =
 
 let rec subst (s : (var, expr) List.Assoc.t) ((Expr e) as exp: expr) : expr =
   match e with
-  | Let {MR.vars = vars; MR.bound = bound; MR.body = body} ->
+  | LetTup {MR.vars = vars; MR.bound = bound; MR.body = body} ->
     (* Shadow every substitution var that appears in vars. *)
     let new_s =
       List.fold_right ~init:s ~f:(fun l r -> List.Assoc.remove r l) vars in
-    Expr (Let {MR.vars = vars;
-               MR.bound = subst s bound;
-               MR.body = subst new_s body})
+    Expr (LetTup {MR.vars = vars;
+                  MR.bound = subst s bound;
+                  MR.body = subst new_s body})
   | Lam {MR.bindings = vars; MR.body = body} ->
     let new_s =
       List.fold_right ~init:s ~f:(fun l r -> List.Assoc.remove r l) vars in
@@ -163,8 +165,8 @@ let rec alpha_eqv
     (List.length l1 = List.length l2) &&
       (* Corresponding elements must be alpha-equivalent. *)
       (List.for_all2_exn ~f:alpha_eqv l1 l2)
-  | (Let {MR.vars = v1; MR.bound = bn1; MR.body = bd1},
-     Let {MR.vars = v2; MR.bound = bn2; MR.body = bd2}) ->
+  | (LetTup {MR.vars = v1; MR.bound = bn1; MR.body = bd1},
+     LetTup {MR.vars = v2; MR.bound = bn2; MR.body = bd2}) ->
     (* Both lets must bind the same number of variables. *)
     (List.length v1 = List.length v2) &&
       (* Both bound terms must be alpha equivalent *)
@@ -175,6 +177,13 @@ let rec alpha_eqv
        (alpha_eqv
           (subst (List.map2_exn ~f:Tuple2.create v1 fresh_vars) bd1)
           (subst (List.map2_exn ~f:Tuple2.create v2 fresh_vars) bd2)))
+  | (Fld {MR.field = n1; MR.tuple = t1}, Fld {MR.field = n2; MR.tuple = t2}) ->
+    n1 = n2 && (alpha_eqv t1 t2)
+  | (Let {MR.var = v1; MR.bound = bn1; MR.body = bd1},
+     Let {MR.var = v2; MR.bound = bn2; MR.body = bd2}) ->
+    (alpha_eqv bn1 bn2) &&
+      let fresh_var = Expr (Var (B.gensym "__=")) in
+      (alpha_eqv (subst [v1, fresh_var] bd1) (subst [v2, fresh_var] bd2))
   | (Cls {code = c1; env = n1}, Cls {code = c2; env = n2}) ->
     (alpha_eqv c1 c2) && (alpha_eqv n1 n2)
   | (Lam {MR.bindings = vars1; MR.body = body1},
@@ -192,7 +201,7 @@ let rec alpha_eqv
   | (Int v1, Int v2) -> v1 = v2
   | (Float v1, Float v2) -> v1 = v2
   | (Bool v1, Bool v2) -> v1 = v2
-  | ((App _ | Vec _ | Map _ | Rep _ | Tup _ | Let _ |
+  | ((App _ | Vec _ | Map _ | Rep _ | Tup _ | LetTup _ | Fld _ | Let _ |
       Cls _ | Lam _ | Var _ | Int _ | Float _ | Bool _), _) -> false
 
 module Test_closure_conversion : sig
@@ -228,7 +237,10 @@ let rec lambda_free (AExpr (_, e): 'a ann_expr) : bool =
   | Rep {MR.arg = a; MR.old_frame = o; MR.new_frame = n} ->
     lambda_free a && lambda_free o && lambda_free n
   | Tup elts -> List.for_all ~f:lambda_free elts
-  | Let {MR.vars = _; MR.bound = bn; MR.body = bd} ->
+  | LetTup {MR.vars = _; MR.bound = bn; MR.body = bd} ->
+    lambda_free bn && lambda_free bd
+  | Fld {MR.field = _; MR.tuple = tup} -> lambda_free tup
+  | Let {MR.var = _; MR.bound = bn; MR.body = bd} ->
     lambda_free bn && lambda_free bd
   | Lam _ -> false
   | Cls {code = c; env = n} -> lambda_free c && lambda_free n
