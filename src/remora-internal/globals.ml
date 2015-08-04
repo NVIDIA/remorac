@@ -289,3 +289,32 @@ let builtins =
              readvec_basetype;
              readscal_basetype;
              write_basetype]
+
+let lam_version (n, t) : (var * typ) option =
+  match t with
+  | TArray (IShape [], tfun) -> Some ("__lam_" ^ n, tfun)
+  (* This seems unlikely to work *)
+  (* | TDProd (bindings, TArray (IShape [], tfun)) *)
+  (*   -> Some ("__lam_" ^ n, *)
+  (*            TDProd (bindings, tfun)) *)
+  | _ -> None
+let builtin_lams =
+  List.filter_opt (List.map ~f:lam_version builtins)
+
+let rec atomlevel_version (n, t) : (var * typ) option =
+  let open Option.Monad_infix in
+  match t with
+  | TArray (IShape [], TFun (ins, out)) ->
+    List.map ~f:(function
+    | TArray (_, TArray _) -> None
+    | TArray (IShape [], elt) -> Some elt
+    | _ -> None) ins |> Option.all >>= fun in_elts ->
+    Some ("__atm_" ^ n, (TFun (in_elts, out)))
+  (* | TDProd (bindings, (TArray _ as arrtype)) -> *)
+  (*   atomlevel_version (n, arrtype) >>= fun (new_name, new_arrtype) -> *)
+  (*   Some (new_name, TDProd (bindings, new_arrtype)) *)
+  | _ -> None
+let builtin_atomlevels =
+  List.filter_opt (List.map ~f:atomlevel_version builtins)
+
+(* TODO: need some way to get type-specific versions of polymorphic primops *)

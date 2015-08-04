@@ -30,3 +30,5 @@ open Core.Std
 open Basic_ast
 
 val builtins : (string, typ) List.Assoc.t
+val builtin_lams : (string, typ) List.Assoc.t
+val builtin_atomlevels : (string, typ) List.Assoc.t
