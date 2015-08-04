@@ -60,6 +60,8 @@ let rec repeat_list (count: int) (xs: 'a list) : 'a list =
 let known_shape (Expr e) : int =
   match e with
   | Vec {dims = dims; elts = _} -> dims
+  (* Built-ins. If these are shadowed, evaluator may misbehave. *)
+  | Var ("+" | "*" | "+."| "*.") -> 1
   | _ -> -1
 
 let is_Int (Expr e) = (match e with | Int _ -> true | _ -> false)
@@ -117,6 +119,12 @@ let apply_primop (opname: var) (args: expr list) : expr =
   | "*" -> (match args with
     | [Expr (Int n1); Expr (Int n2)] -> Expr (Int (n1 * n2))
     | _ -> Expr (App {fn = Expr (Var opname); args = args}))
+  | "+." -> (match args with
+    | [Expr (Float n1); Expr (Float n2)] -> Expr (Float (n1 +. n2))
+    | _ -> Expr (App {fn = Expr (Var opname); args = args}))
+  | "*." -> (match args with
+    | [Expr (Float n1); Expr (Float n2)] -> Expr (Float (n1 *. n2))
+    | _ -> Expr (App {fn = Expr (Var opname); args = args}))
   | _ -> Expr (App {fn = Expr (Var opname); args = args})
 
 (* Expression evaluator, to allow more flexible tests. *)
@@ -168,7 +176,9 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
       let args_axes = List.map ~f:known_shape args_val in
       (match (fn_val, frame_val, shp_val) with
       (* We need fn_val to be a Lam and frame and shp to be valid shapes. *)
-      | (Expr (Lam {bindings = _; body = _}),
+      | ((Expr (Lam {bindings = _; body = _}) as fn_lam |
+          Expr (Vec {dims = 1;
+                     elts = [Expr (Lam {bindings = _; body = _}) as fn_lam]})),
          Expr (Int frame_size),
          (* Expr (Vec {dims = [_]; elts = frame_elts}), *)
          Expr (Vec {dims = _; elts = shp_elts})) ->
@@ -181,7 +191,7 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
             >>= fun args_cells ->
             List.transpose args_cells >>= fun transp_cells ->
             let apps = List.map
-              ~f:(fun cells -> Expr (App {fn = fn_val; args = cells}))
+              ~f:(fun cells -> Expr (App {fn = fn_lam; args = cells}))
               transp_cells in
             return
               (if List.length transp_cells = 0
@@ -225,6 +235,11 @@ let rec eval_expr ~(env: expr T.env) (Expr e) : expr =
           let more_dims = new_frame * cell_size in
           Expr (Vec {dims = more_dims; elts = more_cells})
         else eval_stuck
+      (* Or if it's a non-array value (tuple) with scalar original frame and
+         known target frame, copy it as needed. *)
+      | (Expr (Tup elts),
+         Expr (Int 1), Expr (Int n)) ->
+        Expr (Vec {dims = n; elts = List.init n ~f:(fun _ -> arg_val)})
       | _ -> eval_stuck
       )
     | Tup elts -> Expr( Tup (List.map ~f:(eval_expr ~env:env) elts))

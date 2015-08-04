@@ -272,7 +272,9 @@ let rec of_erased_expr
            and fn_frame = frame_of_arg_exn (Tuple3.get2 (E.annot_of_expr fn)) in
            (* TODO: Relax this equality check to make sure we're not mapping
               on something like [IShape []; IShape []]. *)
-           if fn_frame = []
+           if T.typ_equal
+             (T.typ_of_shape B.TBool fn_frame)
+             (T.typ_of_shape B.TBool [B.IShape []])
            then
              Map {frame = app_frame_shape;
                   fn = of_erased_expr fn;
@@ -281,14 +283,14 @@ let rec of_erased_expr
                                            (E.shape_of_typ shp));
                   args = List.map ~f:lift args}
            else
-             defunctionalized_map
-               ~frame:app_frame_shape
-               ~fn:(of_erased_expr fn)
-               ~shp:(of_nested_shape
-                       (Option.value
-                          ~default:[B.IShape []]
-                          (E.shape_of_typ shp)))
-               ~args:(List.map ~f:lift args)
+              defunctionalized_map
+                ~frame:app_frame_shape
+                ~fn:(of_erased_expr fn)
+                ~shp:(of_nested_shape
+                        (Option.value
+                           ~default:[B.IShape []]
+                           (E.shape_of_typ shp)))
+                ~args:(List.map ~f:lift args)
          | E.Arr (dims, elts) ->
            Vec {dims = List.fold ~init:1 ~f:( * ) dims;
                 elts = List.map ~f:of_erased_elt elts}
