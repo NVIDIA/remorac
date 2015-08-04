@@ -68,6 +68,9 @@ val define_curried_add : Basic_ast.rem_defn
 val lift_curried_add : Basic_ast.rem_expr
 val prog_curried_add : Basic_ast.rem_prog
 val prog_vec_add : Basic_ast.rem_prog
+val saxpy_let : Basic_ast.rem_elt
+val saxpy_field : Basic_ast.rem_elt
+val saxpy_prog : Basic_ast.rem_prog
 
 module UnitTests : sig
   val suite_init_drop : OUnit2.test

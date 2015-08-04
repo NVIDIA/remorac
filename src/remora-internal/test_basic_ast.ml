@@ -303,6 +303,45 @@ let prog_vec_add =
                                     RElt (Int 3); RElt (Int 4);
                                     RElt (Int 5); RElt (Int 6)]))]))))
 
+let saxpy_let =
+  RElt
+    (Lam (["axy", TProd [TArray (IShape [], TFloat);
+                         TArray (IShape [], TFloat);
+                         TArray (IShape [], TFloat)]],
+          (RExpr (LetTup (["a";"x";"y"],
+                          RExpr (Var "axy"),
+                          RExpr (App (RExpr (Var "+."),
+                                      [RExpr (App (RExpr (Var "*."),
+                                                   [(RExpr (Var "a"));
+                                                    (RExpr (Var "x"))]));
+                                       RExpr (Var "y")])))))))
+let saxpy_field =
+  RElt
+    (Lam (["axy", TProd [TArray (IShape [], TFloat);
+                         TArray (IShape [], TFloat);
+                         TArray (IShape [], TFloat)]],
+          (RExpr (App (RExpr (Var "+."),
+                       [RExpr (App (RExpr (Var "*."),
+                                    [(RExpr (Field (0, RExpr (Var "axy"))));
+                                     (RExpr (Field (1, RExpr (Var "axy"))))]));
+                        (RExpr (Field (2, RExpr (Var "axy"))))])))))
+let saxpy_type = TFun ([TProd [TArray (IShape [], TFloat);
+                               TArray (IShape [], TFloat);
+                               TArray (IShape [], TFloat)]],
+                       TArray (IShape [], TFloat))
+let saxpy_let_defn = RDefn ("saxpy_let", TArray (IShape [], saxpy_type),
+                            scalar_of_elt saxpy_let)
+let saxpy_field_defn = RDefn ("saxpy_field", TArray (IShape [], saxpy_type),
+                              scalar_of_elt saxpy_let)
+let saxpy_prog =
+  RProg ([saxpy_let_defn; saxpy_field_defn],
+         RExpr (App (RExpr (Arr ([2], [RElt (Expr (RExpr (Var "saxpy_field")));
+                                       RElt (Expr (RExpr (Var "saxpy_let")))])),
+                     [RExpr
+                         (Tuple [scalar_of_elt_form (Float 2.3);
+                                 scalar_of_elt_form (Float (-1.1));
+                                 scalar_of_elt_form (Float 0.2)])])))
+
 (* For any rem_expr, adding blank annotations and then dropping annotations
    should lead back to the same rem_expr *)
 module UnitTests : sig
@@ -366,5 +405,8 @@ end = struct
        "Apply curried addition to overranked arguments">:: test_expr_init_drop
          lift_curried_add;
        "Use curried addition in program">:: test_prog_init_drop
-         prog_curried_add]
+         prog_curried_add;
+       "Destruct a tuple by let-binding">:: test_elt_init_drop saxpy_let;
+       "Destruct a tuple by field access">:: test_elt_init_drop saxpy_field;
+       "Applying two versions of saxpy">:: test_prog_init_drop saxpy_prog]
 end

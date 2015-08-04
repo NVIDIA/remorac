@@ -441,6 +441,12 @@ end = struct
     test_eq
       (TArray (IShape [INat 2], TFloat))
       (TArray (IShape [ISum (INat 1, INat 1)], TArray (IShape [], TFloat)))
+  let test_17 _ =
+    test_eq
+      (TProd [(TArray (IShape [INat 2], TArray (IShape [INat 3], TFloat)));
+              (TArray (IShape [], TBool))])
+      (TProd [(TArray (IShape [INat 2; INat 3], TFloat));
+              (TArray (IShape [], TBool))])
   let tests =
     let open OUnit2 in
     "check type equivalence">:::
@@ -459,7 +465,8 @@ end = struct
        "scalar/vector nesting">:: test_13;
        "different type vars">:: test_14;
        "equivalent indices">:: test_15;
-       "equivalent indices and equivalent nesting">:: test_16]
+       "equivalent indices and equivalent nesting">:: test_16;
+       "tuple with equivalent nesting in one field">:: test_17]
 end
 
 module Test_frame_contribution : sig
@@ -732,11 +739,24 @@ end = struct
                                 TArray (IShape [], TInt)))]
       prog_curried_add
       (TArray (IShape [INat 2; INat 3], TInt))
+  let test_3 _ =
+    assert_prog_type
+      ~vars:["+.", TArray (IShape [],
+                           TFun ([TArray (IShape [], TFloat);
+                                  TArray (IShape [], TFloat)],
+                                 TArray (IShape [], TFloat)));
+             "*.", TArray (IShape [],
+                           TFun ([TArray (IShape [], TFloat);
+                                  TArray (IShape [], TFloat)],
+                                 TArray (IShape [], TFloat)))]
+      saxpy_prog
+      (TArray (IShape [INat 2], TFloat))
   let tests =
     let open OUnit2 in
     "add type annotation to whole program">:::
       ["function composition">:: test_1;
-       "lifting curried addition">:: test_2]
+       "lifting curried addition">:: test_2;
+       "applying two versions of saxpy">:: test_3]
 end
 
 
