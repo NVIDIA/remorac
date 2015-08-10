@@ -90,65 +90,83 @@ type 'annot ann_defn = ADefn of var * 'annot ann_expr with sexp
 type 'annot ann_prog =
   AProg of 'annot * 'annot ann_defn list * 'annot ann_expr with sexp
 
+(* Convert an erased-lang type which uses function types to a version that
+   uses closure types. *)
+let rec convert_type = function
+  | E.TFun (i, o) | E.TCls (i, o) ->
+    E.TCls (List.map ~f:convert_type i, convert_type o)
+  | E.TDProd (bind, body) -> E.TDProd (bind, convert_type body)
+  | E.TDSum (bind, body) -> E.TDSum (bind, convert_type body)
+  | E.TArray (shp, elt) -> E.TArray (shp, convert_type elt)
+  | E.TTuple elts -> E.TTuple (List.map ~f:convert_type elts)
+  | E.TUnknown | E.TShape | E.TInt | E.TFloat | E.TBool | E.TVar as t -> t
+
+
+
 (* Closure-convert a MapRep AST. *)
 let rec expr_of_maprep
     (bound_vars: var list)
-    (MR.AExpr ((typ, arg, app) as a, e):
+    (MR.AExpr ((typ, arg, app), e):
        (E.typ * arg_frame * app_frame) MR.ann_expr)
     : (E.typ * arg_frame * app_frame) ann_expr =
-  AExpr (a,
-         match e with
-         | MR.App {MR.fn = f; MR.args = a} ->
-           App {closure = expr_of_maprep bound_vars f;
-                args = List.map ~f:(expr_of_maprep bound_vars) a}
-         | MR.Vec {MR.dims = d; MR.elts = e} ->
-           Vec {MR.dims = d;
-                MR.elts = List.map ~f:(expr_of_maprep bound_vars) e}
-         | MR.Map {MR.frame = fr; MR.fn = fn; MR.args = a; MR.shp = s} ->
-           Map {MR.frame = expr_of_maprep bound_vars fr;
-                MR.fn = expr_of_maprep bound_vars fn;
-                MR.args = List.map ~f:(expr_of_maprep bound_vars) a;
-                MR.shp = expr_of_maprep bound_vars s}
-         | MR.Rep {MR.arg = a; MR.new_frame = n; MR.old_frame = o} ->
-           Rep {MR.arg = expr_of_maprep bound_vars a;
-                MR.new_frame = expr_of_maprep bound_vars n;
-                MR.old_frame = expr_of_maprep bound_vars o}
-         | MR.Tup e -> Tup (List.map ~f:(expr_of_maprep bound_vars) e)
-         | MR.LetTup {MR.vars = v; MR.bound = bn; MR.body = bd} ->
-           LetTup {MR.vars = v;
-                   MR.bound = expr_of_maprep bound_vars bn;
-                   MR.body = expr_of_maprep bound_vars bd}
-         | MR.Fld {MR.field = n; MR.tuple = tup} ->
-           Fld {MR.field = n; MR.tuple = expr_of_maprep bound_vars tup}
-         | MR.Let {MR.var = v; MR.bound = bn; MR.body = bd} ->
-           Let {MR.var = v;
-                MR.bound = expr_of_maprep bound_vars bn;
-                MR.body = expr_of_maprep bound_vars bd}
-         | MR.Lam {MR.bindings = v; MR.body = b} ->
-           let env_name = Basic_ast.gensym "__ENV_"
+  (* Any term that stood for a function in the Map/Replicate IR now stands for
+     a closure. *)
+  let new_note = (convert_type typ, arg, app) in
+  match e with
+  | MR.App {MR.fn = f; MR.args = a} ->
+    AExpr (new_note, App {closure = expr_of_maprep bound_vars f;
+                          args = List.map ~f:(expr_of_maprep bound_vars) a})
+  | MR.Vec {MR.dims = d; MR.elts = e} ->
+    AExpr (new_note, Vec {MR.dims = d;
+                          MR.elts = List.map ~f:(expr_of_maprep bound_vars) e})
+  | MR.Map {MR.frame = fr; MR.fn = fn; MR.args = a; MR.shp = s} ->
+    AExpr (new_note, Map {MR.frame = expr_of_maprep bound_vars fr;
+                          MR.fn = expr_of_maprep bound_vars fn;
+                          MR.args = List.map ~f:(expr_of_maprep bound_vars) a;
+                          MR.shp = expr_of_maprep bound_vars s})
+  | MR.Rep {MR.arg = a; MR.new_frame = n; MR.old_frame = o} ->
+    AExpr (new_note, Rep {MR.arg = expr_of_maprep bound_vars a;
+                          MR.new_frame = expr_of_maprep bound_vars n;
+                          MR.old_frame = expr_of_maprep bound_vars o})
+  | MR.Tup e -> AExpr (new_note,
+                       Tup (List.map ~f:(expr_of_maprep bound_vars) e))
+  | MR.LetTup {MR.vars = v; MR.bound = bn; MR.body = bd} ->
+    AExpr (new_note, LetTup {MR.vars = v;
+                             MR.bound = expr_of_maprep bound_vars bn;
+                             MR.body = expr_of_maprep bound_vars bd})
+  | MR.Fld {MR.field = n; MR.tuple = tup} ->
+    AExpr (new_note,
+           Fld {MR.field = n; MR.tuple = expr_of_maprep bound_vars tup})
+  | MR.Let {MR.var = v; MR.bound = bn; MR.body = bd} ->
+    AExpr (new_note, Let {MR.var = v;
+                          MR.bound = expr_of_maprep bound_vars bn;
+                          MR.body = expr_of_maprep bound_vars bd})
+  | MR.Lam {MR.bindings = v; MR.body = b} ->
+    let env_name = Basic_ast.gensym "__ENV_"
            (* Exclude variables bound by this lambda from the resulting free
               variable list. *)
-           and bound_for_body = List.append v bound_vars in
+    and bound_for_body = List.append v bound_vars in
            (* Need the list of free vars and their types in order to construct
               the type of the environment. *)
-           let typed_free_vars =
-             List.map ~f:(fun (MR.AExpr ((t,_,_), e)) ->
-               match e with | MR.Var n -> Some (t, n) | _ -> None)
-               (MR.get_annotated_free_vars bound_for_body b) |>
-                   List.filter_opt in
-           let free_vars = List.map ~f:snd typed_free_vars
-           and fv_types = List.map ~f:fst typed_free_vars in
+    let typed_free_vars =
+      List.map ~f:(fun (MR.AExpr ((t,_,_), e)) ->
+        match e with | MR.Var n -> Some (t, n) | _ -> None)
+        (MR.get_annotated_free_vars bound_for_body b) |>
+            List.filter_opt in
+    let free_vars = List.map ~f:snd typed_free_vars
+    and fv_types = List.map ~f:fst typed_free_vars in
            (* Figure out the type of the env component. *)
-           let env_typ = E.TTuple fv_types in
+    let env_typ = E.TTuple fv_types in
            (* Pick apart the function type so it can be built up with one
               extra arg type (for the env) and the output type can be used for
               the new Lam's body. *)
-           let (out_typ, code_typ) = (match typ with
-             | E.TFun (i, o) -> (o, E.TFun (env_typ :: i, o))
-             | _ ->
-               print_string
-                 "CConv Warning: generated Lam with non-TFun type annotation\n";
-               (E.TUnknown, typ)) in
+    let (out_typ, code_typ) = (match typ with
+      | E.TFun (i, o) -> (o, E.TFun (env_typ :: i, o))
+      | _ ->
+        print_string
+          "CConv Warning: generated Lam with non-TFun type annotation\n";
+        (E.TUnknown, typ)) in
+    AExpr (new_note,
            Cls {code = AExpr
                ((code_typ, arg, app),
                 Lam {MR.bindings = env_name :: v;
@@ -161,11 +179,11 @@ let rec expr_of_maprep
                 env = AExpr ((env_typ, arg, app),
                              Tup (List.map ~f:(fun (t,v) ->
                                AExpr ((t, NotArg, NotApp), Var v))
-                                    typed_free_vars))}
-         | MR.Var v -> Var v
-         | MR.Int i -> Int i
-         | MR.Float f -> Float f
-         | MR.Bool b -> Bool b)
+                                    typed_free_vars))})
+  | MR.Var v -> AExpr (new_note, Var v)
+  | MR.Int i -> AExpr (new_note, Int i)
+  | MR.Float f -> AExpr (new_note, Float f)
+  | MR.Bool b -> AExpr (new_note, Bool b)
 let defn_of_maprep
     (bound_vars: var list)
     (MR.ADefn (name, body): 'a MR.ann_defn)

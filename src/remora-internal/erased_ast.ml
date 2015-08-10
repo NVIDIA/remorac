@@ -61,6 +61,7 @@ type typ =
 | TVar
 | TUnknown
 | TFun of (typ list * typ)
+| TCls of (typ list * typ)
 | TDProd of ((var * srt) list * typ)
 | TDSum of ((var * srt) list * typ)
 | TArray of (idx * typ)

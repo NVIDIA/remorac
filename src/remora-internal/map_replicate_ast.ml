@@ -169,6 +169,8 @@ let rec of_erased_typ (t: E.typ) : E.typ =
   | E.TDProd (bindings, body) ->
     E.TFun (List.map ~f:(fun (_, s) -> typ_of_srt s) bindings,
             of_erased_typ body)
+  (* There should be no closures at this point *)
+  | E.TCls _ -> assert false
   | E.TDSum (bindings, body) ->
     E.TTuple (of_erased_typ body ::
                 List.map ~f:(fun (_, s) -> typ_of_srt s) bindings)
