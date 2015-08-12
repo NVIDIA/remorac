@@ -4,7 +4,7 @@
 \begin_header
 \textclass article
 \begin_preamble
-\usepackage{amsmath, amssymb, mathpartir, minibox, plstx, stmaryrd}
+\usepackage{amsmath, amssymb, mathpartir, mathtools, minibox, plstx, stmaryrd}
 
 \newcommand\llb{\left\llbracket}
 \newcommand\rrb{\right\rrbracket}
@@ -41,14 +41,19 @@
 \newcommand{\iapp}[2]{\left( \text{\tt I-APP} \; #1 \; #2 \right)}
 \newcommand{\pack}[3]{\left( {\tt PACK} \; #1 #2 \;\; {\tt as} \; #3  \right)}
 \newcommand{\unpack}[4]{\left( {\tt UNPACK} \; \left( \left\langle #1 | #2 \right\rangle = #3 \right) \; #4 \right)}
+\newcommand{\tuple}[1]{\left \langle #1 \right \rangle}
+\newcommand{\tfield}[2]{#1 \# #2  }
+\newcommand{\letbind}[3]{ {\tt LET} \; #1 = #2 \; {\tt IN} \; #3 }
 \newcommand{\lam}[2]{ \left( \lambda \; \left( #1 \right) \; #2  \right) }
 
 
 \newcommand{\typearray}[2]{{\tt A}_{#1} #2}
 \newcommand{\typefun}[2]{\left( #1 \rightarrow #2 \right)}
+\newcommand{\typeclosure}[2]{\left( #1 \xrightarrow{Cls} #2 \right)}
 \newcommand{\typeuniv}[2]{\left( \forall \left[ #1 \right] #2 \right)}
 \newcommand{\typeprod}[2]{\left( \Pi \left[ #1 \right] #2 \right)}
 \newcommand{\typesum}[2]{\left( \Sigma \left[ #1 \right] #2 \right)}
+\newcommand{\typetuple}[2]{\left( #1 \, \times \, #2  \right)}
 
 \newcommand{\idxshape}[1]{\left( {\tt S} #1 \right)}
 \newcommand{\idxplus}[2]{\left( {\tt +} \; #1 \; #2 \right)}
@@ -343,6 +348,58 @@ altvar}{
 \backslash
 expr}{
 \backslash
+expr'}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+tuple{
+\backslash
+sequence{
+\backslash
+expr}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+tfield{
+\backslash
+expr}{
+\backslash
+nat}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+letbind{
+\backslash
+var}{
+\backslash
+expr}{
+\backslash
+expr'}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+letbind{
+\backslash
+tuple{
+\backslash
+sequence{
+\backslash
+var}}}{
+\backslash
+expr}{
+\backslash
 expr'} 
 \backslash
 
@@ -521,7 +578,20 @@ sort
 \backslash
 right)}}{
 \backslash
-type} 
+type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typetuple{
+\backslash
+type}{
+\backslash
+sequence{
+\backslash
+alttype}} 
 \backslash
 
 \backslash
@@ -741,7 +811,27 @@ type ('self_t, 'elt_t) expr_form =
 
 \begin_layout Plain Layout
 
+| Let of var * 'self_t * 'self_t
+\end_layout
+
+\begin_layout Plain Layout
+
 | Arr of int list * 'elt_t list
+\end_layout
+
+\begin_layout Plain Layout
+
+| Tuple of 'self_t list
+\end_layout
+
+\begin_layout Plain Layout
+
+| Field of int * 'self_t
+\end_layout
+
+\begin_layout Plain Layout
+
+| LetTup of var list * 'self_t * 'self_t
 \end_layout
 
 \begin_layout Plain Layout
@@ -957,7 +1047,8 @@ Type checking
 \end_layout
 
 \begin_layout Standard
-The full typing rules for Remora are given in the 
+The full typing rules for Remora (except for the let-binding and tuple-related
+ forms added here) are given in the 
 \begin_inset CommandInset href
 LatexCommand href
 name "ESOP 2014 paper"
@@ -1273,6 +1364,47 @@ DProd (bindings, body_type)
 \begin_layout Subsection*
 
 \family typewriter
+Let (var, bound, body)
+\end_layout
+
+\begin_layout Standard
+Find the type 
+\family typewriter
+bound_type
+\family default
+ of 
+\family typewriter
+bound
+\family default
+.
+ Construct a new environment entry binding 
+\family typewriter
+var
+\family default
+ at 
+\family typewriter
+bound_type
+\family default
+.
+ Find the type 
+\family typewriter
+body_type
+\family default
+, by checking 
+\family typewriter
+body
+\family default
+ with an environment extended with that new entry.
+ Return 
+\family typewriter
+body_type
+\family default
+.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
 Arr ([dim ...], [elt ...])
 \end_layout
 
@@ -1312,6 +1444,115 @@ TArray (array_shape, uniqt)
 \end_inset
 
  in abstract notation.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Tuple [elt ...]
+\end_layout
+
+\begin_layout Standard
+Check the type 
+\family typewriter
+t
+\family default
+ of each 
+\family typewriter
+elt
+\family default
+.
+ If all of the elts are well-typed, return 
+\family typewriter
+TProd [t ...]
+\family default
+.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+Field (num, tup)
+\end_layout
+
+\begin_layout Standard
+Check the type of 
+\family typewriter
+tup
+\family default
+.
+ It must have the form
+\family typewriter
+ TProd ft
+\family default
+, where 
+\family typewriter
+ft
+\family default
+ is a list of types with at least (
+\family typewriter
+num
+\family default
+ + 1) elements.
+ If so, return the 
+\family typewriter
+num
+\family default
+th type.
+\end_layout
+
+\begin_layout Subsection*
+
+\family typewriter
+LetTup ([var ...], tup, body)
+\end_layout
+
+\begin_layout Standard
+Again, begin by checking that the type of 
+\family typewriter
+tup
+\family default
+ has the form 
+\family typewriter
+TProd ft
+\family default
+, where the length of 
+\family typewriter
+ft
+\family default
+ is the same as the number of 
+\family typewriter
+var
+\family default
+s being bound.
+ Construct new term environment entries binding each 
+\family typewriter
+var
+\family default
+ at the corresponding element of 
+\family typewriter
+ft
+\family default
+.
+ Using an environment extended with these entries, find the of 
+\family typewriter
+body
+\family default
+ and return it.
+ If we were unable to add any environment entries because 
+\family typewriter
+tup
+\family default
+ is ill-typed or does not have a tuple type, we still attempt to type check
+ 
+\family typewriter
+body
+\family default
+, but we mark this 
+\family typewriter
+LetTup
+\family default
+ form as ill-typed.
 \end_layout
 
 \begin_layout Subsection*
