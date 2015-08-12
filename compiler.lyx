@@ -379,7 +379,11 @@ nat}
 \backslash
 letbind{
 \backslash
-var}{
+tuple{
+\backslash
+sequence{
+\backslash
+var}}}{
 \backslash
 expr}{
 \backslash
@@ -392,11 +396,7 @@ expr'}
 \backslash
 letbind{
 \backslash
-tuple{
-\backslash
-sequence{
-\backslash
-var}}}{
+var}{
 \backslash
 expr}{
 \backslash
@@ -745,6 +745,11 @@ type typ =
 \begin_layout Plain Layout
 
 | TArray of idx * typ
+\end_layout
+
+\begin_layout Plain Layout
+
+| TProd of typ list
 \end_layout
 
 \begin_layout Plain Layout
@@ -1831,6 +1836,9 @@ Type-erased Abstract Syntax
 \begin_layout Standard
 The only part of Remora's dynamic semantics that requires type information
  is choosing the result of a function application with an empty frame.
+ This compiler will leverage type information in other cases (such as consulting
+ type annotations to determine what size buffer is needed to hold the atoms
+ of an array), but these are not semantic issues.
  The formal presentation of the semantics has a type annotation on every
  term (these can be constructed from partial annotations) and reduces an
  empty-frame application form to the unique inhabitant of that form's type
@@ -1990,6 +1998,58 @@ expr}
 
 \begin_layout Plain Layout
 
+	| 
+\backslash
+tuple{
+\backslash
+sequence{
+\backslash
+expr}}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+tfield{
+\backslash
+expr}{
+\backslash
+nat}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+letbind{
+\backslash
+tuple{
+\backslash
+sequence{
+\backslash
+var}}}{
+\backslash
+expr}{
+\backslash
+expr'}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+letbind{
+\backslash
+var}{
+\backslash
+expr}{
+\backslash
+expr'}
+\end_layout
+
+\begin_layout Plain Layout
+
 
 \backslash
 
@@ -2080,6 +2140,19 @@ alttype}
 
 	| 
 \backslash
+typeclosure{
+\backslash
+sequence{
+\backslash
+type}}{
+\backslash
+alttype}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
 typeprod{
 \backslash
 sequence{
@@ -2127,6 +2200,19 @@ typearray{
 idx}{
 \backslash
 type}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+typetuple{
+\backslash
+type}{
+\backslash
+sequence{
+\backslash
+alttype}}
 \end_layout
 
 \begin_layout Plain Layout
@@ -2266,6 +2352,7 @@ The erasure pass itself is given below.
 \eraseT{\typeuniv{\sequence{\var}}{\type}} & = & \eraseT{\type}\\
 \eraseT{\typeprod{\sequence{(\var\;\sort)}}{\type}} & = & \typeprod{\sequence{(\var\;\sort)}}{\eraseT{\type}}\\
 \eraseT{\typesum{\sequence{(\var\;\sort)}}{\type}} & = & \typesum{\sequence{(\var\;\sort)}}{\eraseT{\type}}\\
+\eraseT{\typetuple{\type}{\sequence{\alttype}}} & = & \typetuple{\eraseT{\type}}{\sequence{\eraseT{\alttype}}}\\
 \\
 \eraseL{\lam{\sequence{(\var\;\type)}}{\expr}} & = & \lam{\sequence{\var}}{\eraseE{\expr}}\\
 \eraseL{\base} & = & \base\\
@@ -2280,6 +2367,10 @@ The erasure pass itself is given below.
 \eraseE{\pack{\sequence{\idx}}{\expr}{\type}} & = & \erasedpack{\sequence{\idx}}{\eraseE{\expr}}\\
 \eraseE{\unpack{\sequence{\var}}{\altvar}{\expr}{\expr'}} & = & \unpack{\sequence{\var}}{\altvar}{\eraseE{\expr}}{\eraseE{\expr'}}\\
 \eraseE{\app{\expr}{\sequence{\expr'}}^{\type}} & = & \erasedapp{\eraseE{\expr}}{\sequence{\eraseE{\expr'}}}{\eraseT{\type}}\\
+\eraseE{\tuple{\sequence{\expr}}} & = & \tuple{\sequence{\eraseE{\expr}}}\\
+\eraseE{\tfield{\expr}{\nat}} & = & \tfield{\eraseE{\expr}}{\nat}\\
+\eraseE{\letbind{\tuple{\sequence{\var}}}{\expr}{\expr'}} & = & \letbind{\tuple{\sequence{\var}}}{\eraseE{\expr}}{\eraseE{\expr'}}\\
+\eraseE{\letbind{\var}{\expr}{\expr'}} & = & \letbind{\var}{\eraseE{\expr}}{\eraseE{\expr'}}\\
 \\
 \end{array}
 \]
@@ -2295,7 +2386,7 @@ Map/Replicate Abstract Syntax
 
 \begin_layout Standard
 This phase eliminates the implicit rank-polymorphic mapping.
- Function application lifting is rewritten as an explicit map and replicate
+ Function application lifting is rewritten as explicit map and replicate
  operations.
  The Map/Replicate AST is closer to a conventional 
 \begin_inset Formula $\lambda$
@@ -2350,9 +2441,7 @@ sequence{
 \backslash
 expr}}{
 \backslash
-sequence{
-\backslash
-nat}}
+nat}
 \end_layout
 
 \begin_layout Plain Layout
@@ -2405,6 +2494,19 @@ mrlet{
 sequence{
 \backslash
 var}}{
+\backslash
+expr}{
+\backslash
+expr'}
+\end_layout
+
+\begin_layout Plain Layout
+
+	| 
+\backslash
+letbind{
+\backslash
+var}{
 \backslash
 expr}{
 \backslash
@@ -2469,19 +2571,18 @@ A
 \family typewriter
 Map
 \family default
- takes as input a (possibly computed) frame shape which is used to determine
- how many cells to divide each argument array into for mapping.
- If the frame shape includes a 0 (i.e., there are no argument cells), the
- alternate shape argument is used to construct the final result.
+ takes as input a (possibly computed) frame shape which specifies how many
+ cells to divide each argument array into for mapping.
+ The shape argument is used to allocate memory for the final result.
  Given a well-typed program, 
 \begin_inset Formula $\expr_{shp}$
 \end_inset
 
- should have 
+ should be a multiple of 
 \begin_inset Formula $\expr_{frm}$
 \end_inset
 
- as prefix.
+.
  A 
 \family typewriter
 Rep
@@ -2492,9 +2593,10 @@ Rep
 \family typewriter
 Let
 \family default
- binds the elements of a tuple.
- Again, in a Map/Replicate program generated from a valid Remora program
- should only have 
+ binds a single variable to an experssion or a sequence of variables to
+ the respective elements of a tuple.
+ Again, in a Map/Replicate program generated from a valid Remora program,
+ a let-binder with multiple variables should only have 
 \begin_inset Formula $\expr$
 \end_inset
 
@@ -2503,6 +2605,14 @@ Let
  which produce arrays.
  Merging the term and index namespaces requries name mangling to keep index
  and term variables from shadowing each other.
+ A shape is taken to mean the number of elements in an array.
+ Because 
+\family typewriter
+Map
+\family default
+ splits its argument according to the number of cells and passes each cell
+ as a whole to the function, further details about individual array dimensions
+ are no longer needed.
  This translation pass requires AST annotations for application and argument
  frame shapes:
 \end_layout
@@ -2525,7 +2635,7 @@ Let
 \\
 \eraseI{\nat} & = & \nat\\
 \eraseI{\idxplus{\idx}{\altidx}} & = & \app{\tt +}{\eraseI{\idx}\;\eraseI{\altidx}}\\
-\eraseI{\idxshape{\;\sequence{\idx}}} & = & \mrvec{\sequence{\eraseI{\idx}}}{\length{\sequence{\idx}}}\\
+\eraseI{\idxshape{\;\sequence{\idx}}} & = & \app{\tt *}{\sequence{\eraseI{\idx}}}\\
 \eraseI{\var} & = & \mangle{\var}\\
 \\
 \eraseA{\expr} & = & \mrrep{\expr}{\argframe{\expr}}{\expansion{\expr}}\\
@@ -2545,8 +2655,8 @@ At several points, the translation must consult the (implicit) frame annotation
 \begin_inset Formula $\sequence{\idx}$
 \end_inset
 
- in the annotation becomes the expression 
-\begin_inset Formula $\app{\tt append}{\sequence{\eraseI{\idx}}}$
+ in the annotation becomes an expression which computes the product of 
+\begin_inset Formula ${\sequence{\eraseI{\idx}}}$
 \end_inset
 
 .
@@ -2573,7 +2683,7 @@ Some translation cases generate multiple AST nodes, such as the
 \begin_inset Formula $\lambda$
 \end_inset
 
- produced from an application form.
+ produced from defunctionalizing an application form.
  While the 
 \begin_inset Formula ${\tt {MAP}}$
 \end_inset
@@ -2587,24 +2697,11 @@ Some translation cases generate multiple AST nodes, such as the
 \end_inset
 
 's type.
- An index translated into an expression gets a type corresponding to its
- original sort (
+ An index translated into an expression is typed as 
 \family typewriter
 Int
 \family default
- for 
-\family typewriter
-Nat
-\family default
- and 
-\family typewriter
-TArray
-\family default
- for 
-\family typewriter
-Shape
-\family default
-).
+.
 \end_layout
 
 \begin_layout Section
@@ -2621,6 +2718,22 @@ Lam
  Though it is possible to represent a closure as an ordinary tuple, this
  compiler uses an added form (and hence a new AST type) to make it clear
  whether an AST has been converted.
+ Function-typed AST nodes have their type annotations rewritten to closure
+ types due to the different run time representation (a structure rather
+ than just a bare code pointer).
+ Only 
+\family typewriter
+Lam
+\family default
+ forms (which are generated as 
+\family typewriter
+code
+\family default
+ fields) in 
+\family typewriter
+Cls
+\family default
+ forms will get actual function types.
  The new closure application form should be understood as destructing a
  closure and passing the environment to the function alongside the application
  form's own arguments.
@@ -2645,7 +2758,7 @@ Partial Evaluation
 The Map/Replicate translation tends to introduce needless computation, such
  as defunctionalizing the application of a scalar array and replicating
  with an expansion of 
-\begin_inset Formula $\app{\tt append}{\mrvec{\;}{0}\;\mrvec{\;}{0}}$
+\begin_inset Formula $\app{\tt *}{1\;1}$
 \end_inset
 
 .
