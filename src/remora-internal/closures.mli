@@ -73,6 +73,10 @@ val annot_expr_drop : 'a ann_expr -> expr
 val annot_defn_drop : 'a ann_defn -> defn
 val annot_prog_drop : 'a ann_prog -> prog
 
+val annot_expr_map : f:('a -> 'b) -> 'a ann_expr -> 'b ann_expr
+val annot_defn_map : f:('a -> 'b) -> 'a ann_defn -> 'b ann_defn
+val annot_prog_map : f:('a -> 'b) -> 'a ann_prog -> 'b ann_prog
+
 module Defn_writer : sig
   type ('v, 'a) t = 'v * 'a ann_defn list
   val (>>=) : ('v, 'a) t -> ('v -> ('w, 'a) t) -> ('w, 'a) t

@@ -208,6 +208,22 @@ let annot_defn_drop (ADefn (name, body): 'a ann_defn) : defn =
   Defn (name, annot_expr_drop body)
 let annot_prog_drop (AProg (_, defns, expr): 'a ann_prog) : prog =
   Prog (List.map ~f:annot_defn_drop defns, annot_expr_drop expr)
+let rec annot_expr_map
+    ~(f: 'a -> 'b) (AExpr (a, e): 'a ann_expr)
+    : 'b ann_expr =
+  AExpr (f a, map_expr_form ~f:(annot_expr_map ~f:f) e)
+let annot_defn_map
+    ~(f: 'a -> 'b)
+    (ADefn (name, body): 'a ann_defn)
+    : 'b ann_defn =
+  ADefn (name, annot_expr_map ~f:f body)
+let annot_prog_map
+    ~(f: 'a -> 'b)
+    (AProg (a, defns, expr): 'a ann_prog)
+    : 'b ann_prog =
+  AProg (f a,
+         List.map ~f:(annot_defn_map ~f:f) defns,
+         annot_expr_map ~f:f expr)
 
 (* A computed value of type 'v, along with a list of definitions accumulated
    in the process of computing it, and a monadic interface for working with
